@@ -25515,7 +25515,7 @@ function haoyikuSeries(base: number, step: number) {
   }))
 }
 
-export const reportDataWithHaoyiku: PlatformReport[] = [
+const _rawReportDataWithHaoyiku: PlatformReport[] = [
   ...reportData,
   {
     platform: '好衣库',
@@ -25549,6 +25549,136 @@ export const reportDataWithHaoyiku: PlatformReport[] = [
         monthTotal: 1680,
         daily: haoyikuSeries(160, 7),
       },
+      {
+        category: '平台费用',
+        field: '推广活动费',
+        isTotal: true,
+        valueType: 'amount',
+        yearTotal: 25840,
+        monthTotal: 6240,
+        daily: haoyikuSeries(620, 22),
+      },
+      {
+        category: '平台费用',
+        field: '佣金',
+        isTotal: true,
+        valueType: 'amount',
+        yearTotal: 15520,
+        monthTotal: 3720,
+        daily: haoyikuSeries(372, 13),
+      },
+      {
+        category: '平台费用',
+        field: '罚款',
+        isTotal: true,
+        valueType: 'amount',
+        yearTotal: 3120,
+        monthTotal: 744,
+        daily: haoyikuSeries(74, 3),
+      },
+      {
+        category: '平台费用',
+        field: '消费者赔付',
+        isTotal: true,
+        valueType: 'amount',
+        yearTotal: 6240,
+        monthTotal: 1488,
+        daily: haoyikuSeries(148, 5),
+      },
     ],
   },
 ]
+
+// ===== 虚拟数据扩展（7/1 ~ 7/22，基于 6 月数据模式生成）=====
+
+// 确定性伪随机（基于 sin 散列），保证每次刷新数据一致
+function pseudoRandom(seed: number): number {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453
+  return x - Math.floor(x)
+}
+
+function generateVirtualDates(startDate: string, endDate: string, startLabel: number): Array<{ date: string; label: string }> {
+  const dates: Array<{ date: string; label: string }> = []
+  const start = new Date(startDate + 'T00:00:00')
+  const end = new Date(endDate + 'T00:00:00')
+  let labelDay = startLabel
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().slice(0, 10)
+    dates.push({ date: dateStr, label: `${labelDay}日` })
+    labelDay++
+  }
+  return dates
+}
+
+function generateVirtualDaily(
+  row: ReportRow,
+  virtualDates: Array<{ date: string; label: string }>,
+  platformSeed: number,
+  fieldSeed: number
+): DailyPoint[] {
+  // 取现有非零日均值作为基准
+  const existingValues = row.daily.map((d) => d.value)
+  const nonZeroValues = existingValues.filter((v) => v > 0)
+  const avg = nonZeroValues.length > 0
+    ? nonZeroValues.reduce((s, v) => s + v, 0) / nonZeroValues.length
+    : 0
+
+  return virtualDates.map((date, i) => {
+    if (avg === 0) return { ...date, value: 0 }
+
+    const seed = platformSeed * 1000 + fieldSeed * 100 + i
+    const r1 = pseudoRandom(seed)
+    const r2 = pseudoRandom(seed + 0.5)
+
+    // 随机波动 ±25%
+    const variation = (r1 - 0.5) * 0.5
+    // 周末效应 +10%~+20%
+    const dayOfWeek = new Date(date.date + 'T00:00:00').getDay()
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    const weekendBoost = isWeekend ? 1.1 + r2 * 0.1 : 1.0
+    // 微弱增长趋势 +0.3%/天
+    const trend = 1 + i * 0.003
+
+    let value = avg * (1 + variation) * weekendBoost * trend
+
+    if (row.valueType === 'ratio') {
+      value = Math.max(0, Math.min(1, value))
+    } else {
+      value = Math.round(value * 100) / 100
+    }
+
+    return { ...date, value }
+  })
+}
+
+function extendAllReports(reports: PlatformReport[]): PlatformReport[] {
+  // 7/1 ~ 7/22，共 22 天虚拟数据（今天 7/23，数据到昨天）
+  const virtualDates = generateVirtualDates('2026-07-01', '2026-07-22', 32)
+
+  const platformSeeds: Record<string, number> = {
+    '快手': 1,
+    '爱库存': 2,
+    '唯品会': 3,
+    '好衣库': 4,
+  }
+
+  return reports.map((report) => {
+    const platformSeed = platformSeeds[report.platform] ?? 5
+    return {
+      ...report,
+      dates: [...report.dates, ...virtualDates],
+      rows: report.rows.map((row, rowIdx) => {
+        const virtualDaily = generateVirtualDaily(row, virtualDates, platformSeed, rowIdx)
+        const virtualSum = virtualDaily.reduce((s, d) => s + d.value, 0)
+        return {
+          ...row,
+          yearTotal: row.yearTotal + virtualSum,
+          monthTotal: virtualSum,
+          daily: [...row.daily, ...virtualDaily],
+        }
+      }),
+    }
+  })
+}
+
+export const reportDataWithHaoyiku: PlatformReport[] = extendAllReports(_rawReportDataWithHaoyiku)
