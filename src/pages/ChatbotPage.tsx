@@ -125,7 +125,6 @@ export default function ChatbotPage() {
                     <span className="chat-history__title">{session.title}</span>
                     {session.pinned ? <Pin aria-hidden="true" /> : null}
                   </div>
-                  <p className="chat-history__preview">{session.preview}</p>
                   <time><Clock aria-hidden="true" />{session.updatedAt}</time>
                 </button>
               </li>

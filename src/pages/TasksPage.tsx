@@ -440,18 +440,21 @@ export default function TasksPage() {
 
         <div className="ledger-filters" aria-label="平台与店铺筛选">
           <div className="data-subtabs platform-filter">
-            {dataTab === 'tasks' ? (
-              <button
-                className={taskPlatform === '全部' ? 'selected' : ''}
-                type="button"
-                onClick={() => {
+            <button
+              className={(dataTab === 'tasks' ? taskPlatform : dailyPlatform) === '全部' ? 'selected' : ''}
+              type="button"
+              onClick={() => {
+                if (dataTab === 'tasks') {
                   setTaskPlatform('全部')
                   setTaskStore('全部')
-                }}
-              >
-                全部
-              </button>
-            ) : null}
+                } else {
+                  setDailyPlatform('全部')
+                  setDailyStore('全部')
+                }
+              }}
+            >
+              全部
+            </button>
             {ledgerPlatforms.map((item) => (
                   <button
                     className={(dataTab === 'tasks' ? taskPlatform : dailyPlatform) === item ? 'selected' : ''}

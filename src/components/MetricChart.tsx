@@ -143,9 +143,9 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
       return point
     })
     return (
-      <ChartShell title="管理费用合计" subtitle="总计 · 各平台管理费用" icon={<BarChart3 aria-hidden="true" />}>
+      <ChartShell title="管理费用合计" subtitle="总计 · 各平台管理费用叠加" icon={<BarChart3 aria-hidden="true" />}>
         <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
-        <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{reportData.map((report, index) => <Bar key={report.platform} dataKey={report.platform} fill={['#9aa8a0', '#b9c6c0', '#0f766e', '#e9ae64'][index]} radius={[4, 4, 0, 0]} />)}</BarChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{reportData.map((report, index) => <Bar key={report.platform} dataKey={report.platform} stackId="mgmt" fill={['#9aa8a0', '#b9c6c0', '#0f766e', '#e9ae64'][index]} />)}</BarChart></ResponsiveContainer>
       </ChartShell>
     )
   }
@@ -180,10 +180,23 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
     )
   }
   if (spec.field === '管理费用合计') {
-    const data = periodBuckets(period).map((bucket) => ({ label: bucket.label, value: fieldPeriodValue(platform, spec.field, period, bucket.indexes) }))
+    if (period === 'day') {
+      return (
+        <ChartShell title="管理费用合计" subtitle={`${platform} · 期间费用`} icon={<BarChart3 aria-hidden="true" />}>
+          <div className="daily-metric normal"><span>当日数值</span><strong>{formatPrecise(totalValue)}</strong><p>管理费用合计</p></div>
+        </ChartShell>
+      )
+    }
+    const dailyData = storeFieldDetailSeries(platform as DetailPlatform, spec.field, period)
+    const combinedData = periodBuckets(period).map((bucket, index) => {
+      const point: Record<string, string | number> = { label: bucket.label }
+      dailyData.forEach((store) => { point[store.name] = store.data[index]?.value ?? 0 })
+      return point
+    })
     return (
-      <ChartShell title="管理费用合计" subtitle={`${platform} · 期间费用`} icon={<BarChart3 aria-hidden="true" />}>
-        {period === 'day' ? <div className="daily-metric normal"><span>当日数值</span><strong>{formatPrecise(totalValue)}</strong><p>管理费用合计</p></div> : <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Bar dataKey="value" fill="#9aa8a0" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer>}
+      <ChartShell title="管理费用合计" subtitle={`${platform} · 各店铺叠加`} icon={<BarChart3 aria-hidden="true" />}>
+        <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
+        <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={combinedData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{dailyData.map((store, index) => <Bar key={store.name} dataKey={store.name} stackId="mgmt" fill={['#79dbc4', '#5fb7e6', '#e9ae64'][index % 3]} />)}</BarChart></ResponsiveContainer>
       </ChartShell>
     )
   }
