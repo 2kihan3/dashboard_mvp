@@ -42,6 +42,7 @@ interface DailyTaskRecord {
   metrics: { gmv: number; platformFee: number; managementFee: number }
   peaCost: number // 豌豆消耗
   owner: string // 任务归属人员
+  reviewer: string // 审核人
 }
 
 interface DailyDataRecord {
@@ -54,7 +55,7 @@ interface DailyDataRecord {
   managementFee: number
 }
 
-const taskColumns = ['任务 ID', '任务来源', '平台', '店铺', '任务日期', '业务日期', '豌豆消耗', '归属人员', '结果预览', '任务结果', '日报状态', '交叉验证', '任务日志', '操作项']
+const taskColumns = ['任务 ID', '任务来源', '平台', '店铺', '任务日期', '业务日期', '豌豆消耗', '归属人员', '审核人', '结果预览', '任务结果', '日报状态', '交叉验证', '任务日志', '操作项']
 const dailyDataColumns = ['业务日期', '平台名称', '店铺名称', 'GMV', '平台费用合计', '管理费用合计', '查看明细']
 
 const taskRows: DailyTaskRecord[] = [
@@ -76,6 +77,7 @@ const taskRows: DailyTaskRecord[] = [
     metrics: { gmv: 12722.86, platformFee: 1658.79, managementFee: 116.76 },
     peaCost: 320,
     owner: '李运营',
+    reviewer: '张管理员',
   },
   {
     id: 'task-2',
@@ -95,6 +97,7 @@ const taskRows: DailyTaskRecord[] = [
     metrics: { gmv: 5519.9, platformFee: 573.06, managementFee: 0 },
     peaCost: 280,
     owner: '陈分析',
+    reviewer: '',
   },
   {
     id: 'task-3',
@@ -114,6 +117,7 @@ const taskRows: DailyTaskRecord[] = [
     metrics: { gmv: 57911.59, platformFee: 1501.65, managementFee: 0 },
     peaCost: 450,
     owner: '王财务',
+    reviewer: '张管理员',
   },
   {
     id: 'task-4',
@@ -133,6 +137,7 @@ const taskRows: DailyTaskRecord[] = [
     metrics: { gmv: 0, platformFee: 0, managementFee: 0 },
     peaCost: 80,
     owner: '李运营',
+    reviewer: '',
   },
   {
     id: 'task-5',
@@ -152,6 +157,7 @@ const taskRows: DailyTaskRecord[] = [
     metrics: { gmv: 13680.5, platformFee: 1820.3, managementFee: 0 },
     peaCost: 360,
     owner: '张管理员',
+    reviewer: '王财务',
   },
 ]
 
@@ -362,6 +368,7 @@ export default function TasksPage() {
       metrics: { gmv: 0, platformFee: 0, managementFee: 0 },
       peaCost: 0,
       owner: '李运营',
+      reviewer: '',
     }
     setTasks((rows) => [record, ...rows])
     setTaskPlatform(uploadPlatformName)
@@ -531,6 +538,7 @@ export default function TasksPage() {
                       <td>{row.businessDate}</td>
                       <td><span className="data-pill pea-cost">{row.peaCost}</span></td>
                       <td>{row.owner}</td>
+                      <td>{row.reviewer || '—'}</td>
                       <td>{row.taskResult === '完成' ? <button className="preview-link" type="button" onClick={() => setPreviewTask(row)}><Eye aria-hidden="true" />查看</button> : '--'}</td>
                       <td><span className={`data-pill ${row.taskResult === '完成' ? 'normal' : 'danger'}`}>{row.taskResult}</span></td>
                       <td><span className={`data-pill ${row.reportStatus === '已发布' ? 'normal' : 'warning'}`}>{row.reportStatus}</span></td>

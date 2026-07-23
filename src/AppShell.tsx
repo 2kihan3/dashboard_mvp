@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Bell,
   Boxes,
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -14,6 +13,8 @@ import {
   Network,
   Search,
   Settings,
+  Shield,
+  Store,
 } from 'lucide-react'
 import './App.css'
 import ChatbotPage from './pages/ChatbotPage'
@@ -21,8 +22,10 @@ import DashboardPage from './pages/DashboardPage'
 import TasksPage from './pages/TasksPage'
 import SkillsPage from './pages/SkillsPage'
 import ProvenancePage from './pages/ProvenancePage'
+import AdminPage from './pages/AdminPage'
+import MerchantPage from './pages/MerchantPage'
 
-export type AppSection = 'chatbot' | 'dashboard' | 'tasks' | 'skills' | 'provenance'
+export type AppSection = 'chatbot' | 'dashboard' | 'tasks' | 'skills' | 'provenance' | 'admin' | 'merchant'
 
 type RoleTone = 'aqua' | 'amber' | 'blue' | 'green'
 
@@ -75,17 +78,20 @@ interface NavItem {
   eyebrow: string
   description: string
   icon: React.ReactNode
+  group: 'business' | 'admin'
 }
 
 const navItems: NavItem[] = [
-  { key: 'chatbot', label: 'chatbot', eyebrow: 'operating_engine', description: '与经营引擎对话，追问任何经营问题', icon: <MessageSquare aria-hidden="true" /> },
-  { key: 'dashboard', label: '经营看板', eyebrow: 'business_dashboard', description: '多平台经营指标与趋势', icon: <LayoutDashboard aria-hidden="true" /> },
-  { key: 'tasks', label: '数据中心', eyebrow: 'data_center', description: '日报任务记录与日报数据', icon: <ListTodo aria-hidden="true" /> },
-  { key: 'skills', label: 'skill 市场', eyebrow: 'skill_market', description: '电商经营场景的可复用技能', icon: <Boxes aria-hidden="true" /> },
-  { key: 'provenance', label: '数据溯源', eyebrow: 'data_provenance', description: '全链路追溯（筹备中）', icon: <Network aria-hidden="true" /> },
+  { key: 'chatbot', label: 'chatbot', eyebrow: 'operating_engine', description: '与经营引擎对话，追问任何经营问题', icon: <MessageSquare aria-hidden="true" />, group: 'business' },
+  { key: 'dashboard', label: '经营看板', eyebrow: 'business_dashboard', description: '多平台经营指标与趋势', icon: <LayoutDashboard aria-hidden="true" />, group: 'business' },
+  { key: 'tasks', label: '数据中心', eyebrow: 'data_center', description: '日报任务记录与日报数据', icon: <ListTodo aria-hidden="true" />, group: 'business' },
+  { key: 'skills', label: 'skill 市场', eyebrow: 'skill_market', description: '电商经营场景的可复用技能', icon: <Boxes aria-hidden="true" />, group: 'business' },
+  { key: 'provenance', label: '数据溯源', eyebrow: 'data_provenance', description: '全链路追溯（筹备中）', icon: <Network aria-hidden="true" />, group: 'business' },
+  { key: 'admin', label: '系统管理员', eyebrow: 'system_admin', description: 'LLM 配置与系统消耗管理', icon: <Shield aria-hidden="true" />, group: 'admin' },
+  { key: 'merchant', label: '商户管理员', eyebrow: 'merchant_admin', description: '团队与商户配置管理', icon: <Store aria-hidden="true" />, group: 'admin' },
 ]
 
-const validHashes: AppSection[] = ['chatbot', 'dashboard', 'tasks', 'skills', 'provenance']
+const validHashes: AppSection[] = ['chatbot', 'dashboard', 'tasks', 'skills', 'provenance', 'admin', 'merchant']
 
 function parseHash(): AppSection {
   const raw = window.location.hash.replace(/^#/, '')
@@ -115,6 +121,7 @@ export default function AppShell() {
   const [notifList, setNotifList] = useState(notifications)
   const [notifFilter, setNotifFilter] = useState<NotifFilter>('all')
   const headerActionsRef = useRef<HTMLDivElement>(null)
+  const sidebarUserRef = useRef<HTMLDivElement>(null)
 
   const currentRole = roles.find((role) => role.key === currentRoleKey) ?? roles[0]
   const unreadCount = notifList.filter((item) => item.unread).length
@@ -123,8 +130,10 @@ export default function AppShell() {
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
       if (headerActionsRef.current && !headerActionsRef.current.contains(event.target as Node)) {
-        setUserMenuOpen(false)
         setNotifOpen(false)
+      }
+      if (sidebarUserRef.current && !sidebarUserRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleOutsideClick)
@@ -143,7 +152,21 @@ export default function AppShell() {
         </div>
 
         <nav className="nav" aria-label="主导航">
-          {navItems.map((item) => (
+          {navItems.filter((item) => item.group === 'business').map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={section === item.key ? 'active' : ''}
+              onClick={() => navigate(item.key)}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+              <i className="nav-active-dot" aria-hidden="true" />
+            </button>
+          ))}
+          <div className="nav-divider" />
+          <span className="nav-group-label">管理后台</span>
+          {navItems.filter((item) => item.group === 'admin').map((item) => (
             <button
               key={item.key}
               type="button"
@@ -157,14 +180,49 @@ export default function AppShell() {
           ))}
         </nav>
 
-        <div className="sidebar-note">
-          <CalendarDays aria-hidden="true" />
-          <p>默认口径为前一天 00:00:00–23:59:59；周维度按自然周汇总；所有数据均为示例。</p>
-        </div>
+        <div className="sidebar-user" ref={sidebarUserRef}>
+          <button
+            type="button"
+            className="sidebar-user__btn"
+            onClick={() => setUserMenuOpen((open) => !open)}
+          >
+            <span className={`topbar-avatar topbar-avatar--${currentRole.tone}`}>{currentRole.avatar}</span>
+            <div className="sidebar-user__info">
+              <strong>{currentRole.name}</strong>
+              <span>{currentRole.label}</span>
+            </div>
+            <ChevronDown aria-hidden="true" />
+          </button>
 
-        <div className="sidebar-foot">
-          <span className="eyebrow">build · v0.2</span>
-          <p>5 板块外壳 + 看板合并 + chatbot 三栏示例</p>
+          {userMenuOpen ? (
+            <div className="sidebar-user-dropdown" role="dialog" aria-label="账号切换">
+              <header className="topbar-dropdown__head">
+                <strong>切换账号角色</strong>
+                <span>当前 · {currentRole.label}</span>
+              </header>
+              <div className="role-list">
+                {roles.map((role) => (
+                  <button
+                    key={role.key}
+                    type="button"
+                    className={role.key === currentRoleKey ? 'active' : ''}
+                    onClick={() => { setCurrentRoleKey(role.key); setUserMenuOpen(false) }}
+                  >
+                    <span className={`topbar-avatar topbar-avatar--${role.tone}`}>{role.avatar}</span>
+                    <div>
+                      <strong>{role.name}</strong>
+                      <small>{role.label} · {role.desc}</small>
+                    </div>
+                    <Check className="role-check" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+              <footer className="topbar-dropdown__foot">
+                <button type="button"><Settings aria-hidden="true" />账号设置</button>
+                <button type="button"><LogOut aria-hidden="true" />退出登录</button>
+              </footer>
+            </div>
+          ) : null}
         </div>
       </aside>
 
@@ -184,19 +242,6 @@ export default function AppShell() {
             >
               <Bell aria-hidden="true" />
               {unreadCount > 0 ? <span className="topbar-dot">{unreadCount}</span> : null}
-            </button>
-
-            <button
-              type="button"
-              className="topbar-user"
-              onClick={() => { setUserMenuOpen((open) => !open); setNotifOpen(false) }}
-            >
-              <span className={`topbar-avatar topbar-avatar--${currentRole.tone}`}>{currentRole.avatar}</span>
-              <div>
-                <strong>{currentRole.name}</strong>
-                <span>{currentRole.label}</span>
-              </div>
-              <ChevronDown aria-hidden="true" />
             </button>
 
             {notifOpen ? (
@@ -241,36 +286,6 @@ export default function AppShell() {
                 </footer>
               </div>
             ) : null}
-
-            {userMenuOpen ? (
-              <div className="topbar-dropdown topbar-dropdown--user" role="dialog" aria-label="账号切换">
-                <header className="topbar-dropdown__head">
-                  <strong>切换账号角色</strong>
-                  <span>当前 · {currentRole.label}</span>
-                </header>
-                <div className="role-list">
-                  {roles.map((role) => (
-                    <button
-                      key={role.key}
-                      type="button"
-                      className={role.key === currentRoleKey ? 'active' : ''}
-                      onClick={() => { setCurrentRoleKey(role.key); setUserMenuOpen(false) }}
-                    >
-                      <span className={`topbar-avatar topbar-avatar--${role.tone}`}>{role.avatar}</span>
-                      <div>
-                        <strong>{role.name}</strong>
-                        <small>{role.label} · {role.desc}</small>
-                      </div>
-                      <Check className="role-check" aria-hidden="true" />
-                    </button>
-                  ))}
-                </div>
-                <footer className="topbar-dropdown__foot">
-                  <button type="button"><Settings aria-hidden="true" />账号设置</button>
-                  <button type="button"><LogOut aria-hidden="true" />退出登录</button>
-                </footer>
-              </div>
-            ) : null}
           </div>
         </header>
 
@@ -280,6 +295,8 @@ export default function AppShell() {
           {section === 'tasks' ? <TasksPage /> : null}
           {section === 'skills' ? <SkillsPage /> : null}
           {section === 'provenance' ? <ProvenancePage /> : null}
+          {section === 'admin' ? <AdminPage /> : null}
+          {section === 'merchant' ? <MerchantPage /> : null}
         </div>
       </main>
     </div>
