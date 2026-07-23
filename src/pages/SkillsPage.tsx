@@ -6,7 +6,6 @@ import {
   PackageCheck,
   Scale,
   Sparkles,
-  Star,
   Target,
   TrendingUp,
   Undo2,
@@ -55,12 +54,6 @@ function SkillCardItem({ skill }: { skill: SkillCard }) {
       </div>
       <footer className="skill-card__foot">
         <div className="skill-card__meta">
-          <span className="skill-card__rating">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Star key={index} className={index < skill.rating ? 'filled' : ''} aria-hidden="true" />
-            ))}
-          </span>
-          <span className="skill-card__invocations">{skill.invocations.toLocaleString('zh-CN')} 次调用</span>
           <span className="skill-card__pea">
             <Sparkles aria-hidden="true" />{skill.peaCost} 豌豆/次
           </span>
@@ -77,7 +70,6 @@ export default function SkillsPage() {
   const [category, setCategory] = useState<SkillCard['category'] | '全部'>('全部')
 
   const visibleCards = category === '全部' ? skillCards : skillCards.filter((card) => card.category === category)
-  const totalInvocations = skillCards.reduce((sum, card) => sum + card.invocations, 0)
 
   return (
     <section className="page-stack skills-page">
@@ -91,7 +83,6 @@ export default function SkillsPage() {
 
       <section className="skills-summary">
         <article><small>技能总数</small><strong>{skillCards.length}</strong><span>覆盖 6 类经营场景</span></article>
-        <article><small>累计调用</small><strong>{totalInvocations.toLocaleString('zh-CN')}</strong><span>近 30 日</span></article>
       </section>
 
       <section className="skills-toolbar">

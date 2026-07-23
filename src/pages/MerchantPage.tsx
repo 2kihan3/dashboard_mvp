@@ -8,20 +8,8 @@ import {
   QrCode,
   Store,
   Unlink,
-  Users,
   X,
 } from 'lucide-react'
-
-type MerchantTab = 'team' | 'settings'
-
-interface TeamMember {
-  id: string
-  name: string
-  role: string
-  platform: string
-  store: string
-  status: 'active' | 'disabled'
-}
 
 interface PlatformAccount {
   id: string
@@ -32,13 +20,6 @@ interface PlatformAccount {
   status: 'connected' | 'expired'
 }
 
-const teamMembers: TeamMember[] = [
-  { id: 'm1', name: '李运营', role: '运营', platform: '快手', store: '官方旗舰店', status: 'active' },
-  { id: 'm2', name: '王财务', role: '财务', platform: '唯品会', store: '品牌集合店', status: 'active' },
-  { id: 'm3', name: '陈分析', role: '数据分析师', platform: '全部', store: '全部', status: 'active' },
-  { id: 'm4', name: '张管理员', role: '管理员', platform: '全部', store: '全部', status: 'active' },
-]
-
 const bindablePlatforms = ['快手', '爱库存', '唯品会', '好衣库', '抖店', '得物']
 
 const initialAccounts: PlatformAccount[] = [
@@ -48,7 +29,6 @@ const initialAccounts: PlatformAccount[] = [
 ]
 
 export default function MerchantPage() {
-  const [merchantTab, setMerchantTab] = useState<MerchantTab>('team')
   const [accounts, setAccounts] = useState<PlatformAccount[]>(initialAccounts)
   const [bindDialogOpen, setBindDialogOpen] = useState(false)
   const [bindPlatform, setBindPlatform] = useState(bindablePlatforms[0])
@@ -119,17 +99,10 @@ export default function MerchantPage() {
           <span className="eyebrow">merchant_admin</span>
           <h2>商户管理员</h2>
         </div>
-        <p>管理团队成员与平台账号绑定。</p>
+        <p>管理平台账号绑定与店铺信息。</p>
       </section>
 
       <section className="report-stats">
-        <article className="report-stat-card">
-          <span className="report-stat-card__icon"><Users aria-hidden="true" /></span>
-          <div>
-            <strong>{teamMembers.length}</strong>
-            <span>团队成员</span>
-          </div>
-        </article>
         <article className="report-stat-card">
           <span className="report-stat-card__icon report-stat-card__icon--success"><Link2 aria-hidden="true" /></span>
           <div>
@@ -146,121 +119,75 @@ export default function MerchantPage() {
         </article>
       </section>
 
-      <div className="admin-tabs">
-        <button type="button" className={merchantTab === 'team' ? 'active' : ''} onClick={() => setMerchantTab('team')}>
-          <Users aria-hidden="true" />
-          团队成员
-        </button>
-        <button type="button" className={merchantTab === 'settings' ? 'active' : ''} onClick={() => setMerchantTab('settings')}>
-          <Link2 aria-hidden="true" />
-          平台账号绑定
-        </button>
-      </div>
-
-      {merchantTab === 'team' ? (
-        <article className="data-table-card">
-          <header>
-            <div>
-              <span className="eyebrow">team_members</span>
-              <h3>团队成员</h3>
-            </div>
-          </header>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>姓名</th>
-                  <th>角色</th>
-                  <th>负责平台</th>
-                  <th>负责店铺</th>
-                  <th>状态</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teamMembers.map((m) => (
-                  <tr key={m.id}>
-                    <td><strong>{m.name}</strong></td>
-                    <td>{m.role}</td>
-                    <td>{m.platform}</td>
-                    <td>{m.store}</td>
-                    <td><span className={`data-pill ${m.status === 'active' ? 'good' : 'warning'}`}>{m.status === 'active' ? '正常' : '已停用'}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <article className="data-table-card">
+        <header>
+          <div>
+            <span className="eyebrow">platform_binding</span>
+            <h3>平台账号绑定</h3>
           </div>
-        </article>
-      ) : (
-        <article className="data-table-card">
-          <header>
-            <div>
-              <span className="eyebrow">platform_binding</span>
-              <h3>平台账号绑定</h3>
-            </div>
-            <button className="primary-action" type="button" onClick={() => { setBindDialogOpen(true); setBindStep('select'); setBindMode('scan'); setBindPlatform(bindablePlatforms[0]); setBindAccount(''); setBindPassword('') }}>
-              <Plus aria-hidden="true" />
-              绑定平台账号
-            </button>
-          </header>
-          <div className="platform-account-list">
-            {accounts.map((account) => (
-              <article key={account.id} className={`platform-account-card ${account.status === 'expired' ? 'expired' : ''}`}>
-                <header className="platform-account-card__head">
-                  <div className="platform-account-card__title">
-                    <span className="platform-account-card__icon">
-                      <Store aria-hidden="true" />
-                    </span>
-                    <div>
-                      <strong>{account.accountName}</strong>
-                      <small>{account.platform}</small>
-                    </div>
-                  </div>
-                  <div className="platform-account-card__meta">
-                    <span className={`data-pill ${account.status === 'connected' ? 'good' : 'warning'}`}>
-                      {account.status === 'connected' ? <CheckCircle2 aria-hidden="true" /> : <Unlink aria-hidden="true" />}
-                      {account.status === 'connected' ? '已连接' : '已过期'}
-                    </span>
-                    <span className="platform-account-card__time">绑定时间：{account.boundAt}</span>
-                    <button type="button" className="icon-btn-sm" title="编辑" onClick={() => setEditAccount(account)}><Pencil aria-hidden="true" /></button>
-                    <button type="button" className="icon-btn-sm danger" title="解绑" onClick={() => handleUnbind(account.id)}><Unlink aria-hidden="true" /></button>
-                  </div>
-                </header>
-                <div className="platform-account-card__stores">
-                  <div className="platform-account-card__stores-head">
-                    <small className="binding-card__label">关联店铺（{account.stores.length}）</small>
-                    {account.status === 'connected' ? (
-                      <button type="button" className="binding-add-input" onClick={() => setStoreDialogAccount(account)}>
-                        <Plus aria-hidden="true" />添加店铺
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="platform-store-tags">
-                    {account.stores.map((store) => (
-                      <span key={store} className="platform-store-tag">
-                        <Store aria-hidden="true" />
-                        {store}
-                        {account.status === 'connected' ? (
-                          <button type="button" className="platform-store-tag__remove" onClick={() => handleRemoveStore(account.id, store)} aria-label="移除店铺">
-                            <X aria-hidden="true" />
-                          </button>
-                        ) : null}
-                      </span>
-                    ))}
-                    {account.stores.length === 0 ? <span className="platform-store-empty">暂无关联店铺</span> : null}
+          <button className="primary-action" type="button" onClick={() => { setBindDialogOpen(true); setBindStep('select'); setBindMode('scan'); setBindPlatform(bindablePlatforms[0]); setBindAccount(''); setBindPassword('') }}>
+            <Plus aria-hidden="true" />
+            绑定平台账号
+          </button>
+        </header>
+        <div className="platform-account-list">
+          {accounts.map((account) => (
+            <article key={account.id} className={`platform-account-card ${account.status === 'expired' ? 'expired' : ''}`}>
+              <header className="platform-account-card__head">
+                <div className="platform-account-card__title">
+                  <span className="platform-account-card__icon">
+                    <Store aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong>{account.accountName}</strong>
+                    <small>{account.platform}</small>
                   </div>
                 </div>
-              </article>
-            ))}
-            {accounts.length === 0 ? (
-              <div className="merchant-settings-placeholder">
-                <QrCode aria-hidden="true" />
-                <p>暂未绑定任何平台账号</p>
-                <small>点击「扫码绑定」开始接入平台</small>
+                <div className="platform-account-card__meta">
+                  <span className={`data-pill ${account.status === 'connected' ? 'good' : 'warning'}`}>
+                    {account.status === 'connected' ? <CheckCircle2 aria-hidden="true" /> : <Unlink aria-hidden="true" />}
+                    {account.status === 'connected' ? '已连接' : '已过期'}
+                  </span>
+                  <span className="platform-account-card__time">绑定时间：{account.boundAt}</span>
+                  <button type="button" className="icon-btn-sm" title="编辑" onClick={() => setEditAccount(account)}><Pencil aria-hidden="true" /></button>
+                  <button type="button" className="icon-btn-sm danger" title="解绑" onClick={() => handleUnbind(account.id)}><Unlink aria-hidden="true" /></button>
+                </div>
+              </header>
+              <div className="platform-account-card__stores">
+                <div className="platform-account-card__stores-head">
+                  <small className="binding-card__label">关联店铺（{account.stores.length}）</small>
+                  {account.status === 'connected' ? (
+                    <button type="button" className="binding-add-input" onClick={() => setStoreDialogAccount(account)}>
+                      <Plus aria-hidden="true" />添加店铺
+                    </button>
+                  ) : null}
+                </div>
+                <div className="platform-store-tags">
+                  {account.stores.map((store) => (
+                    <span key={store} className="platform-store-tag">
+                      <Store aria-hidden="true" />
+                      {store}
+                      {account.status === 'connected' ? (
+                        <button type="button" className="platform-store-tag__remove" onClick={() => handleRemoveStore(account.id, store)} aria-label="移除店铺">
+                          <X aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </span>
+                  ))}
+                  {account.stores.length === 0 ? <span className="platform-store-empty">暂无关联店铺</span> : null}
+                </div>
               </div>
-            ) : null}
-          </div>
-        </article>
-      )}
+            </article>
+          ))}
+          {accounts.length === 0 ? (
+            <div className="merchant-settings-placeholder">
+              <QrCode aria-hidden="true" />
+              <p>暂未绑定任何平台账号</p>
+              <small>点击「扫码绑定」开始接入平台</small>
+            </div>
+          ) : null}
+        </div>
+      </article>
 
       {/* 扫码绑定弹窗 */}
       {bindDialogOpen ? (
