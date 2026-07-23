@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
+  Download,
   Eye,
   FileSpreadsheet,
   FileText,
@@ -295,8 +296,14 @@ export default function TasksPage() {
   const [createMode, setCreateMode] = useState<'manual' | 'auto' | null>(null)
   const [autoPlatform, setAutoPlatform] = useState<LedgerPlatform>('快手')
   const [autoStore, setAutoStore] = useState('')
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
+  const [downloadPlatform, setDownloadPlatform] = useState<DataPlatformFilter>('全部')
+  const [downloadStore, setDownloadStore] = useState<DataStoreFilter>('全部')
+  const [downloadStartDate, setDownloadStartDate] = useState('')
+  const [downloadEndDate, setDownloadEndDate] = useState(dateMinusOne())
   const taskStoreOptions = uniqueValues(tasks.filter((task) => taskPlatform === '全部' || task.platform === taskPlatform).map((task) => task.store))
   const dailyStoreOptions = uniqueValues(dailyData.filter((row) => dailyPlatform === '全部' || row.platform === dailyPlatform).map((row) => row.store))
+  const downloadStoreOptions = uniqueValues(dailyData.filter((row) => downloadPlatform === '全部' || row.platform === downloadPlatform).map((row) => row.store))
 
   // 报告统计
   const totalDailyReports = tasks.length
@@ -507,7 +514,13 @@ export default function TasksPage() {
               新建任务
             </button>
           ) : (
-            <span className="table-count">{visibleDailyData.length} 条日报数据</span>
+            <div className="table-header-actions">
+              <span className="table-count">{visibleDailyData.length} 条日报数据</span>
+              <button className="primary-action" type="button" onClick={() => { setDownloadDialogOpen(true); setDownloadPlatform('全部'); setDownloadStore('全部'); setDownloadStartDate(''); setDownloadEndDate(dateMinusOne()) }}>
+                <Download aria-hidden="true" />
+                下载
+              </button>
+            </div>
           )}
         </header>
         {ledgerNotice ? (
@@ -713,6 +726,52 @@ export default function TasksPage() {
 
       {previewTask ? <TaskPreviewDialog task={previewTask} onClose={() => setPreviewTask(null)} /> : null}
       {logTask ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setLogTask(null)}><section className="ledger-dialog"><header><div><span className="eyebrow">task_log</span><h3>任务运行日志</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setLogTask(null)}>×</button></header><pre className="task-log">{logTask.taskLog}</pre></section></div> : null}
+
+      {/* 下载日报数据弹窗 */}
+      {downloadDialogOpen ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDownloadDialogOpen(false)}>
+          <form className="ledger-dialog create-task-dialog" onSubmit={(event) => {
+            event.preventDefault()
+            setDownloadDialogOpen(false)
+            setLedgerNotice('日报数据下载任务已创建，请稍后在下载中心查看')
+          }}>
+            <header>
+              <div>
+                <span className="eyebrow">download_daily_data</span>
+                <h3>下载日报数据</h3>
+              </div>
+              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setDownloadDialogOpen(false)}>×</button>
+            </header>
+            <p>选择时间范围、平台与店铺，下载对应的日报数据。</p>
+            <label className="dialog-field">
+              <span>业务日期</span>
+              <div className="date-range-inputs">
+                <input type="date" max={dateMinusOne()} value={downloadStartDate} onChange={(event) => setDownloadStartDate(event.target.value)} />
+                <b>至</b>
+                <input type="date" max={dateMinusOne()} value={downloadEndDate} onChange={(event) => setDownloadEndDate(event.target.value)} />
+              </div>
+            </label>
+            <label className="dialog-field">
+              <span>平台</span>
+              <select value={downloadPlatform} onChange={(event) => { setDownloadPlatform(event.target.value as DataPlatformFilter); setDownloadStore('全部') }}>
+                <option value="全部">全部平台</option>
+                {ledgerPlatforms.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className="dialog-field">
+              <span>店铺</span>
+              <select value={downloadStore} onChange={(event) => setDownloadStore(event.target.value)}>
+                <option value="全部">全部店铺</option>
+                {downloadStoreOptions.map((store) => <option key={store} value={store}>{store}</option>)}
+              </select>
+            </label>
+            <footer>
+              <button className="secondary-action" type="button" onClick={() => setDownloadDialogOpen(false)}>取消</button>
+              <button className="primary-action" type="submit"><Download aria-hidden="true" />下载</button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -1114,6 +1114,28 @@
 }
 .data-table-card header h3 { color: #ecf4f0; }
 .table-count { color: var(--muted); font-family: "DM Mono", monospace; font-size: 11px; }
+.table-header-actions { display: flex; align-items: center; gap: 12px; }
+
+/* 下载弹窗日期范围输入 */
+.date-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.date-range-inputs input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(9, 16, 15, .6);
+  color: var(--mist);
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+}
+.date-range-inputs input:focus { outline: none; border-color: rgba(121, 219, 196, .4); }
+.date-range-inputs input::-webkit-calendar-picker-indicator { filter: invert(.7) hue-rotate(120deg); cursor: pointer; }
+.date-range-inputs b { color: var(--faint); font-weight: 400; font-size: 12px; }
 
 .ledger-notice {
   display: flex;
