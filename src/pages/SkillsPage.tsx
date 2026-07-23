@@ -52,12 +52,6 @@ function SkillCardItem({ skill }: { skill: SkillCard }) {
             {skill.inputs.map((input) => <span key={input} className="skill-tag">{input}</span>)}
           </div>
         </div>
-        <div>
-          <small>输出</small>
-          <div className="skill-card__tags">
-            {skill.outputs.map((output) => <span key={output} className="skill-tag skill-tag--output">{output}</span>)}
-          </div>
-        </div>
       </div>
       <footer className="skill-card__foot">
         <div className="skill-card__meta">
@@ -83,9 +77,6 @@ export default function SkillsPage() {
   const [category, setCategory] = useState<SkillCard['category'] | '全部'>('全部')
 
   const visibleCards = category === '全部' ? skillCards : skillCards.filter((card) => card.category === category)
-  const officialCount = skillCards.filter((card) => card.status === 'official').length
-  const betaCount = skillCards.filter((card) => card.status === 'beta').length
-  const communityCount = skillCards.filter((card) => card.status === 'community').length
   const totalInvocations = skillCards.reduce((sum, card) => sum + card.invocations, 0)
 
   return (
@@ -100,7 +91,6 @@ export default function SkillsPage() {
 
       <section className="skills-summary">
         <article><small>技能总数</small><strong>{skillCards.length}</strong><span>覆盖 6 类经营场景</span></article>
-        <article><small>官方 / Beta / 社区</small><strong>{officialCount} / {betaCount} / {communityCount}</strong><span>多源共建</span></article>
         <article><small>累计调用</small><strong>{totalInvocations.toLocaleString('zh-CN')}</strong><span>近 30 日</span></article>
       </section>
 

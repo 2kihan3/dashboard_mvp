@@ -287,6 +287,8 @@ export default function TasksPage() {
   const [ledgerNotice, setLedgerNotice] = useState('')
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [createMode, setCreateMode] = useState<'manual' | 'auto' | null>(null)
+  const [autoPlatform, setAutoPlatform] = useState<LedgerPlatform>('快手')
+  const [autoStore, setAutoStore] = useState('')
   const taskStoreOptions = uniqueValues(tasks.filter((task) => taskPlatform === '全部' || task.platform === taskPlatform).map((task) => task.store))
   const dailyStoreOptions = uniqueValues(dailyData.filter((row) => dailyPlatform === '全部' || row.platform === dailyPlatform).map((row) => row.store))
 
@@ -579,7 +581,12 @@ export default function TasksPage() {
                   <small>上传 Excel/CSV 文件，系统自动解析并创建任务记录</small>
                 </div>
               </button>
-              <button type="button" className="create-task-option" onClick={() => { setCreateMode('auto'); setCreateModalOpen(false); setLedgerNotice('已创建自动化任务，正在拉取平台数据...') }}>
+              <button type="button" className="create-task-option" onClick={() => {
+                setCreateMode('auto')
+                const firstStore = tasks.filter((t) => t.platform === '快手').map((t) => t.store)[0] ?? ''
+                setAutoPlatform('快手')
+                setAutoStore(firstStore)
+              }}>
                 <span className="create-task-option__icon create-task-option__icon--auto"><Sparkles aria-hidden="true" /></span>
                 <div>
                   <strong>创建自动化任务</strong>
@@ -588,6 +595,50 @@ export default function TasksPage() {
               </button>
             </div>
           </section>
+        </div>
+      ) : null}
+
+      {createMode === 'auto' ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setCreateMode(null); setCreateModalOpen(false) } }}>
+          <form className="ledger-dialog create-task-dialog" onSubmit={(event) => {
+            event.preventDefault()
+            setCreateMode(null)
+            setCreateModalOpen(false)
+            setTaskPlatform(autoPlatform)
+            setTaskStore(autoStore)
+            setLedgerNotice(`已创建 ${autoPlatform} · ${autoStore} 自动化任务，正在拉取平台数据...`)
+          }}>
+            <header>
+              <div>
+                <span className="eyebrow">auto_task</span>
+                <h3>创建自动化任务</h3>
+              </div>
+              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => { setCreateMode(null); setCreateModalOpen(false) }}>×</button>
+            </header>
+            <p>选择目标平台与店铺，系统将调用 skill 自动拉取数据并生成日报。</p>
+            <label className="dialog-field">
+              <span>平台</span>
+              <select value={autoPlatform} onChange={(event) => {
+                const plat = event.target.value as LedgerPlatform
+                setAutoPlatform(plat)
+                const firstStore = tasks.filter((t) => t.platform === plat).map((t) => t.store)[0] ?? ''
+                setAutoStore(firstStore)
+              }}>
+                {ledgerPlatforms.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className="dialog-field">
+              <span>店铺名称</span>
+              <select value={autoStore} onChange={(event) => setAutoStore(event.target.value)} required>
+                {tasks.filter((t) => t.platform === autoPlatform).map((t) => t.store).filter((v, i, arr) => arr.indexOf(v) === i).map((store) => <option key={store} value={store}>{store}</option>)}
+              </select>
+            </label>
+            <div className="dialog-meta"><span>来源：自动化任务</span><span>业务日期：{dateMinusOne()}</span><span>预计消耗：320 豌豆</span></div>
+            <footer>
+              <button className="secondary-action" type="button" onClick={() => { setCreateMode(null); setCreateModalOpen(false) }}>取消</button>
+              <button className="primary-action" type="submit"><Sparkles aria-hidden="true" />创建任务</button>
+            </footer>
+          </form>
         </div>
       ) : null}
 
