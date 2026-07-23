@@ -14,6 +14,8 @@ import {
   Target,
   TrendingUp,
   X,
+  ChevronsDown,
+  ChevronsUp,
 } from 'lucide-react'
 import { chatSessions, currentSessionMessages, quickSkills, type ChatMessage } from '../data/chatbotMock'
 
@@ -100,6 +102,7 @@ export default function ChatbotPage() {
   const [input, setInput] = useState('')
   const [ruleTime, setRuleTime] = useState('yesterday')
   const [ruleScene, setRuleScene] = useState('daily_report')
+  const [historyExpanded, setHistoryExpanded] = useState(false)
 
   const messages = useMemo(() => currentSessionMessages, [])
   const previewableMessages = messages.filter((m) => m.producedFile)
@@ -114,7 +117,7 @@ export default function ChatbotPage() {
         <div className="chatbot-rail__section">
           <h4>对话历史</h4>
           <ul className="chat-history">
-            {chatSessions.map((session) => (
+            {(historyExpanded ? chatSessions : chatSessions.slice(0, 5)).map((session) => (
               <li key={session.id}>
                 <button
                   type="button"
@@ -130,6 +133,11 @@ export default function ChatbotPage() {
               </li>
             ))}
           </ul>
+          {chatSessions.length > 5 ? (
+            <button type="button" className="chat-history-toggle" onClick={() => setHistoryExpanded((v) => !v)}>
+              {historyExpanded ? <><ChevronsUp aria-hidden="true" />收起</> : <><ChevronsDown aria-hidden="true" />展开全部（{chatSessions.length}）</>}
+            </button>
+          ) : null}
         </div>
         <div className="chatbot-rail__section">
           <h4>常用技能</h4>

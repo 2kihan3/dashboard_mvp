@@ -54,6 +54,30 @@ export const chatSessions: ChatSession[] = [
     preview: '好衣库已配置技术运营服务费 / 快递信息服务费两项映射…',
     updatedAt: '7/10',
   },
+  {
+    id: 's-5',
+    title: '抖店推广 ROI 归因',
+    preview: '抖店近 7 天推广 ROI 1.82，信息流广告贡献 64%…',
+    updatedAt: '7/8',
+  },
+  {
+    id: 's-6',
+    title: '得物店铺库存预警',
+    preview: '得物 3 款主推 SKU 库存周转天数超 30 天，建议补货…',
+    updatedAt: '7/6',
+  },
+  {
+    id: 's-7',
+    title: '6 月利润归因复盘',
+    preview: '6 月整体利润率 12.3%，快手贡献 41%，唯品会贡献 29%…',
+    updatedAt: '7/3',
+  },
+  {
+    id: 's-8',
+    title: '快手闪购店退款追溯',
+    preview: '快手闪购店 7/1-7/5 退款率突增至 8.2%，已定位批次…',
+    updatedAt: '7/1',
+  },
 ]
 
 export const quickSkills: QuickSkill[] = [
