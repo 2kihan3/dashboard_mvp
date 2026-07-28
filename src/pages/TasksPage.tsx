@@ -7,7 +7,7 @@ import {
   FileSpreadsheet,
   FileText,
   Pencil,
-  Plus,
+  RotateCcw,
   ScrollText,
   Sparkles,
   Unlink,
@@ -41,6 +41,8 @@ interface DailyTaskRecord {
   taskLog: string
   isUnbound: boolean
   metrics: { gmv: number; platformFee: number; managementFee: number }
+  reviewedFields?: Record<string, number>
+  reviewNote?: string
   peaCost: number // 豌豆消耗
   owner: string // 任务归属人员
   reviewer: string // 审核人
@@ -52,12 +54,73 @@ interface DailyDataRecord {
   platform: LedgerPlatform
   store: string
   gmv: number
+  salesRevenue: number | null
+  actualRevenue: number | null
+  refundAmount: number | null
+  activityDiscount: number | null
+  salesCost: number | null
   platformFee: number
+  promotionFee: number | null
+  shippingFee: number | null
   managementFee: number
+  wage: number | null
+  rent: number | null
+  officeExpense: number | null
+  otherExpense: number | null
+  financeExpense: number | null
+  taxes: number | null
+  estimatedCostTax: number | null
+  platformRebate: number | null
+  netProfit: number | null
+  netProfitMargin: number | null
+  allocatedNetProfit: number | null
+}
+
+type DailyDataMetricKey = Exclude<keyof DailyDataRecord, 'taskId' | 'businessDate' | 'platform' | 'store'>
+
+interface DailyDataField {
+  key: DailyDataMetricKey
+  label: string
+  valueType?: 'amount' | 'ratio'
 }
 
 const taskColumns = ['任务 ID', '任务来源', '平台', '店铺', '任务日期', '业务日期', '豌豆消耗', '归属人员', '审核人', '结果预览', '任务结果', '日报状态', '交叉验证', '任务日志', '操作项']
-const dailyDataColumns = ['业务日期', '平台名称', '店铺名称', 'GMV', '平台费用合计', '管理费用合计', '查看明细']
+const dailyDataFieldsByPlatform: Record<LedgerPlatform, DailyDataField[]> = {
+  快手: [
+    { key: 'gmv', label: '平台成交GMV' }, { key: 'actualRevenue', label: '实发收入' }, { key: 'refundAmount', label: '退货金额' },
+    { key: 'platformFee', label: '平台费用' }, { key: 'promotionFee', label: '推广费' }, { key: 'shippingFee', label: '运费' },
+    { key: 'managementFee', label: '后台管理费' }, { key: 'otherExpense', label: '其他费用支出' }, { key: 'taxes', label: '税金及附加' },
+    { key: 'netProfit', label: '净利润' }, { key: 'netProfitMargin', label: '净利润率', valueType: 'ratio' }, { key: 'allocatedNetProfit', label: '公摊后净利润' },
+  ],
+  抖店: [
+    { key: 'gmv', label: '平台成交GMV' }, { key: 'salesRevenue', label: '销售收入' }, { key: 'actualRevenue', label: '实发收入' },
+    { key: 'refundAmount', label: '退货金额' }, { key: 'platformFee', label: '平台费用' }, { key: 'promotionFee', label: '推广费' },
+    { key: 'shippingFee', label: '运费' }, { key: 'netProfit', label: '净利润' }, { key: 'netProfitMargin', label: '净利润率', valueType: 'ratio' },
+  ],
+  唯品会: [
+    { key: 'gmv', label: '平台成交GMV' }, { key: 'salesRevenue', label: '销售收入' }, { key: 'actualRevenue', label: '实发收入' },
+    { key: 'refundAmount', label: '退货金额' }, { key: 'activityDiscount', label: '活动折扣' }, { key: 'salesCost', label: '销售成本' },
+    { key: 'platformFee', label: '平台费用' }, { key: 'promotionFee', label: '推广费' }, { key: 'shippingFee', label: '运费' },
+    { key: 'otherExpense', label: '其他费用支出' }, { key: 'taxes', label: '税金及附加' }, { key: 'netProfit', label: '净利润' },
+    { key: 'netProfitMargin', label: '净利润率', valueType: 'ratio' }, { key: 'allocatedNetProfit', label: '公摊后净利润' },
+  ],
+  爱库存: [
+    { key: 'gmv', label: '平台成交GMV' }, { key: 'actualRevenue', label: '实发收入' }, { key: 'refundAmount', label: '退货金额' },
+    { key: 'platformFee', label: '平台费用' }, { key: 'promotionFee', label: '推广费' }, { key: 'managementFee', label: '后台管理费' },
+    { key: 'otherExpense', label: '其他费用支出' }, { key: 'taxes', label: '税金及附加' }, { key: 'netProfit', label: '净利润' },
+    { key: 'netProfitMargin', label: '净利润率', valueType: 'ratio' }, { key: 'allocatedNetProfit', label: '公摊后净利润' },
+  ],
+  好衣库: [
+    { key: 'gmv', label: '平台成交GMV' }, { key: 'platformFee', label: '平台费用' }, { key: 'promotionFee', label: '推广活动费' },
+    { key: 'shippingFee', label: '快递信息服务费' }, { key: 'otherExpense', label: '其他费用支出' }, { key: 'netProfit', label: '净利润' },
+    { key: 'netProfitMargin', label: '净利润率', valueType: 'ratio' }, { key: 'allocatedNetProfit', label: '公摊后净利润' },
+  ],
+  得物: [
+    { key: 'gmv', label: '平台成交GMV' }, { key: 'salesRevenue', label: '销售收入' }, { key: 'refundAmount', label: '退货金额' },
+    { key: 'platformFee', label: '平台费用' }, { key: 'promotionFee', label: '推广费' }, { key: 'shippingFee', label: '运费' },
+    { key: 'netProfit', label: '净利润' }, { key: 'netProfitMargin', label: '净利润率', valueType: 'ratio' },
+  ],
+}
 
 const taskRows: DailyTaskRecord[] = [
   {
@@ -209,7 +272,9 @@ function getPlatformPreviewFields(platform: string, report: { rows: ReportRow[] 
 
 interface TaskPreviewField {
   field: string
-  value: string
+  valueType: 'amount' | 'ratio'
+  originalValue: number
+  modifiedValue?: number
 }
 
 interface TaskPreviewGroup {
@@ -233,7 +298,7 @@ function taskPreviewGroups(task: DailyTaskRecord): TaskPreviewGroup[] {
   whitelist.forEach((fieldName) => {
     const row = report.rows.find((r) => r.field === fieldName)
     const category = isUnifiedGroup ? '核心指标' : (row?.category ?? '平台费用')
-    const value = row
+    const originalValue = row
       ? (row.field === '平台成交GMV'
           ? task.metrics.gmv
           : row.field === '平台费用合计'
@@ -245,7 +310,12 @@ function taskPreviewGroups(task: DailyTaskRecord): TaskPreviewGroup[] {
     const fieldType = row?.valueType ?? 'amount'
 
     if (!groupMap.has(category)) groupMap.set(category, [])
-    groupMap.get(category)!.push({ field: fieldName, value: formatPrecise(value, fieldType) })
+    groupMap.get(category)!.push({
+      field: fieldName,
+      valueType: fieldType,
+      originalValue,
+      modifiedValue: task.reviewedFields?.[fieldName],
+    })
   })
 
   return Array.from(groupMap.entries())
@@ -257,14 +327,76 @@ function taskPreviewGroups(task: DailyTaskRecord): TaskPreviewGroup[] {
     .map(([category, fields]) => ({ category, fields }))
 }
 
-function TaskPreviewDialog({ task, onClose }: { task: DailyTaskRecord; onClose: () => void }) {
+function taskFieldValues(task: DailyTaskRecord) {
+  return Object.fromEntries(taskPreviewGroups({ ...task, reviewedFields: undefined }).flatMap((group) => group.fields.map((field) => [field.field, field.originalValue])))
+}
+
+function reportFieldValue(task: DailyTaskRecord, fieldName: string) {
+  const reviewedValue = task.reviewedFields?.[fieldName]
+  if (reviewedValue !== undefined) return reviewedValue
+
+  const report = reportData.find((item) => item.platform === task.platform)
+  const dateIndex = report?.dates.findIndex((point) => point.date === task.businessDate) ?? -1
+  if (!report || dateIndex < 0) return null
+  return report.rows.find((row) => row.field === fieldName)?.daily[dateIndex]?.value ?? null
+}
+
+function metricsForPublish(task: DailyTaskRecord) {
+  const fields = taskPreviewGroups(task)
+  const gmv = task.reviewedFields?.['平台成交GMV'] ?? task.metrics.gmv
+  const platformFeeTotal = task.reviewedFields?.['平台费用合计']
+  const managementFee = task.reviewedFields?.['后台管理费'] ?? task.reviewedFields?.['管理费用合计'] ?? task.metrics.managementFee
+  const platformFee = platformFeeTotal ?? task.metrics.platformFee + fields
+    .flatMap((group) => group.category === '平台费用' ? group.fields : [])
+    .filter((field) => field.field !== '平台费用合计' && field.modifiedValue !== undefined)
+    .reduce((sum, field) => sum + (field.modifiedValue! - field.originalValue), 0)
+
+  return {
+    gmv,
+    salesRevenue: reportFieldValue(task, '销售收入'),
+    actualRevenue: reportFieldValue(task, '实发收入'),
+    refundAmount: reportFieldValue(task, '退货金额'),
+    activityDiscount: reportFieldValue(task, '活动折扣'),
+    salesCost: reportFieldValue(task, '销售成本'),
+    platformFee,
+    promotionFee: reportFieldValue(task, '推广费'),
+    shippingFee: reportFieldValue(task, '运费'),
+    managementFee,
+    wage: reportFieldValue(task, '工资'),
+    rent: reportFieldValue(task, '房租'),
+    officeExpense: reportFieldValue(task, '办公费用'),
+    otherExpense: reportFieldValue(task, '其他费用支出'),
+    financeExpense: reportFieldValue(task, '财务费用'),
+    taxes: reportFieldValue(task, '税金及附加'),
+    estimatedCostTax: reportFieldValue(task, '预估成本税（6.5%）'),
+    platformRebate: reportFieldValue(task, '平台返点及优惠券'),
+    netProfit: reportFieldValue(task, '净利润'),
+    netProfitMargin: reportFieldValue(task, '净利润率'),
+    allocatedNetProfit: reportFieldValue(task, '公摊后净利润'),
+  }
+}
+
+function formatDailyDataValue(value: number | null, valueType: 'amount' | 'ratio' = 'amount') {
+  return value === null ? '—' : formatPrecise(value, valueType)
+}
+
+function TaskPreviewDialog({ task, onClose, onEdit }: { task: DailyTaskRecord; onClose: () => void; onEdit: (task: DailyTaskRecord) => void }) {
   const groups = taskPreviewGroups(task)
+  const canEdit = task.taskResult !== '失败' && task.crossValidation === '未通过' && !task.isUnbound
   return (
     <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="ledger-dialog task-preview-dialog">
         <header><div><span className="eyebrow">task_preview</span><h3>任务结果预览</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={onClose}>×</button></header>
         <div className="task-preview-grid"><span>任务 ID</span><strong>{task.taskId}</strong><span>平台 / 店铺</span><strong>{task.platform} · {task.store}</strong><span>业务日期</span><strong>{task.businessDate}</strong></div>
-        {groups.length ? <div className="task-detail-groups">{groups.map((group) => <section key={group.category}><h4>{group.category}</h4><div>{group.fields.map((field) => <p key={field.field}><span>{field.field}</span><strong>{field.value}</strong></p>)}</div></section>)}</div> : <div className="task-detail-empty">该平台暂未配置日报字段映射。</div>}
+        <p className="task-preview-original">原始任务指标：GMV {formatPrecise(task.metrics.gmv)}，平台费用 {formatPrecise(task.metrics.platformFee)}，管理费用 {formatPrecise(task.metrics.managementFee)}</p>
+        {groups.length ? <div className="task-detail-groups">{groups.map((group) => <section key={group.category}><h4>{group.category}</h4><div>{group.fields.map((field) => <p key={field.field} className={field.modifiedValue === undefined ? '' : 'is-modified'}><span>{field.field}</span><strong>{formatPrecise(field.originalValue, field.valueType)}</strong>{field.modifiedValue === undefined ? null : <strong className="task-field-modified">{formatPrecise(field.modifiedValue, field.valueType)}</strong>}</p>)}</div></section>)}</div> : <div className="task-detail-empty">该平台暂未配置日报字段映射。</div>}
+        {task.reviewedFields && Object.keys(task.reviewedFields).length ? <p className="task-preview-revision">已保存修正字段。字段顺序为“字段名称 / 原始数据 / 修改数据”，原始任务结果和日志保持不变。</p> : null}
+        <footer className="task-preview-actions">
+          <span className={`task-preview-edit-control ${canEdit ? '' : 'is-disabled'}`}>
+            <button className="secondary-action" type="button" disabled={!canEdit} onClick={() => onEdit(task)}><Pencil aria-hidden="true" />修改</button>
+            {!canEdit ? <span className="task-preview-edit-tooltip" role="tooltip">当前状态无法对本条数据进行修改！</span> : null}
+          </span>
+        </footer>
       </section>
     </div>
   )
@@ -273,13 +405,39 @@ function TaskPreviewDialog({ task, onClose }: { task: DailyTaskRecord; onClose: 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<DailyTaskRecord[]>(taskRows)
   const [dailyData, setDailyData] = useState<DailyDataRecord[]>([
-    { taskId: '20260714WPPPJH001', businessDate: '2026-07-13', platform: '唯品会', store: '品牌集合店', gmv: 57911.59, platformFee: 1501.65, managementFee: 0 },
+    {
+      taskId: '20260714WPPPJH001',
+      businessDate: '2026-07-13',
+      platform: '唯品会',
+      store: '品牌集合店',
+      gmv: 57911.59,
+      salesRevenue: 55314.24,
+      actualRevenue: 51660.85,
+      refundAmount: 1898.42,
+      activityDiscount: 2353.32,
+      salesCost: 31978.56,
+      platformFee: 1501.65,
+      promotionFee: 4329.78,
+      shippingFee: 1158.62,
+      managementFee: 0,
+      wage: 1140.5,
+      rent: 526.78,
+      officeExpense: 182.64,
+      otherExpense: 98.36,
+      financeExpense: 47.22,
+      taxes: 264.18,
+      estimatedCostTax: 329.36,
+      platformRebate: 412.56,
+      netProfit: 5694.4,
+      netProfitMargin: 0.0983,
+      allocatedNetProfit: 4025.76,
+    },
   ])
   const [dataTab, setDataTab] = useState<DataTab>('tasks')
   const [taskPlatform, setTaskPlatform] = useState<DataPlatformFilter>('全部')
   const [taskStore, setTaskStore] = useState<DataStoreFilter>('全部')
-  const [dailyPlatform, setDailyPlatform] = useState<DataPlatformFilter>('全部')
-  const [dailyStore, setDailyStore] = useState<DataStoreFilter>('全部')
+  const [dailyPlatform, setDailyPlatform] = useState<LedgerPlatform>('唯品会')
+  const [dailyStore, setDailyStore] = useState('品牌集合店')
   const [dailyStartDate, setDailyStartDate] = useState('')
   const [dailyEndDate, setDailyEndDate] = useState(dateMinusOne())
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
@@ -291,9 +449,9 @@ export default function TasksPage() {
   const [uploadStoreName, setUploadStoreName] = useState('')
   const [uploadPlatformName, setUploadPlatformName] = useState<LedgerPlatform>('快手')
   const [reviewNote, setReviewNote] = useState('')
+  const [reviewFields, setReviewFields] = useState<Record<string, number>>({})
   const [ledgerNotice, setLedgerNotice] = useState('')
-  const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [createMode, setCreateMode] = useState<'manual' | 'auto' | null>(null)
+  const [createMode, setCreateMode] = useState<'auto' | null>(null)
   const [autoPlatform, setAutoPlatform] = useState<LedgerPlatform>('快手')
   const [autoStore, setAutoStore] = useState('')
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
@@ -302,7 +460,7 @@ export default function TasksPage() {
   const [downloadStartDate, setDownloadStartDate] = useState('')
   const [downloadEndDate, setDownloadEndDate] = useState(dateMinusOne())
   const taskStoreOptions = uniqueValues(tasks.filter((task) => taskPlatform === '全部' || task.platform === taskPlatform).map((task) => task.store))
-  const dailyStoreOptions = uniqueValues(dailyData.filter((row) => dailyPlatform === '全部' || row.platform === dailyPlatform).map((row) => row.store))
+  const dailyStoreOptions = uniqueValues(dailyData.filter((row) => row.platform === dailyPlatform).map((row) => row.store))
   const downloadStoreOptions = uniqueValues(dailyData.filter((row) => downloadPlatform === '全部' || row.platform === downloadPlatform).map((row) => row.store))
 
   // 报告统计
@@ -313,17 +471,21 @@ export default function TasksPage() {
     .filter((task) => (taskPlatform === '全部' || task.platform === taskPlatform) && (taskStore === '全部' || task.store === taskStore))
     .sort((left, right) => right.taskDate.localeCompare(left.taskDate))
   const visibleDailyData = dailyData
-    .filter((row) => (dailyPlatform === '全部' || row.platform === dailyPlatform) && (dailyStore === '全部' || row.store === dailyStore))
+    .filter((row) => row.platform === dailyPlatform && row.store === dailyStore)
     .filter((row) => !dailyStartDate || row.businessDate >= dailyStartDate)
     .filter((row) => !dailyEndDate || row.businessDate <= dailyEndDate)
     .sort((left, right) => right.businessDate.localeCompare(left.businessDate))
+  const reviewingTask = tasks.find((task) => task.taskId === reviewingTaskId) ?? null
+  const dailyDataFields = dailyDataFieldsByPlatform[dailyPlatform]
+  const dailyDataColumns = ['业务日期', '平台名称', '店铺名称', ...dailyDataFields.map((field) => field.label), '查看明细']
 
   function publishTask(taskId: string) {
     const task = tasks.find((item) => item.taskId === taskId)
     if (!task || task.taskResult === '失败' || task.crossValidation === '未通过' || task.isUnbound) return
     setTasks((rows) => rows.map((row) => row.taskId === taskId ? { ...row, reportStatus: '已发布' } : row))
+    const publishedMetrics = metricsForPublish(task)
     setDailyData((rows) => [
-      { taskId: task.taskId, businessDate: task.businessDate, platform: task.platform, store: task.store, ...task.metrics },
+      { taskId: task.taskId, businessDate: task.businessDate, platform: task.platform, store: task.store, ...publishedMetrics },
       ...rows.filter((row) => !(row.businessDate === task.businessDate && row.platform === task.platform && row.store === task.store)),
     ])
     setLedgerNotice('日报已发布，并已写入日报数据')
@@ -331,27 +493,45 @@ export default function TasksPage() {
 
   function openReview(task: DailyTaskRecord) {
     setReviewingTaskId(task.taskId)
-    setReviewNote(task.taskLog)
+    setReviewNote(task.reviewNote ?? '')
+    setReviewFields({ ...taskFieldValues(task), ...task.reviewedFields })
     setIsReviewDialogOpen(true)
   }
 
   function completeReview() {
     if (!reviewingTaskId) return
+    const task = tasks.find((item) => item.taskId === reviewingTaskId)
+    if (!task) return
+    const originalFields = taskFieldValues(task)
+    const modifiedFields = Object.fromEntries(Object.entries(reviewFields).filter(([field, value]) => value !== originalFields[field]))
     setTasks((rows) =>
       rows.map((row) =>
         row.taskId === reviewingTaskId
-          ? { ...row, crossValidation: '已修正', taskLog: reviewNote.trim() || '人工复核完成' }
+          ? { ...row, crossValidation: '已修正', reviewedFields: modifiedFields, reviewNote: reviewNote.trim() || '人工复核完成' }
           : row,
       ),
     )
     setIsReviewDialogOpen(false)
-    setLedgerNotice('复核完成，交叉验证已更新为“已修正”')
+    setLedgerNotice('复核完成，原始结果已保留；发布时将写入修正后数据')
   }
 
   function unbindTask(taskId: string) {
     setTasks((rows) => rows.map((row) => row.taskId === taskId ? { ...row, isUnbound: true } : row))
     setDailyData((rows) => rows.filter((row) => row.taskId !== taskId))
     setLedgerNotice('任务已与对应业务日期和店铺的日报数据解绑')
+  }
+
+  function openRetry(task: DailyTaskRecord) {
+    setAutoPlatform(task.platform)
+    setAutoStore(task.store)
+    setCreateMode('auto')
+  }
+
+  function openManualUpload(task: DailyTaskRecord) {
+    setUploadPlatformName(task.platform)
+    setUploadStoreName(task.store)
+    setSelectedFile(null)
+    setIsUploadDialogOpen(true)
   }
 
   function submitManualUpload(event: React.FormEvent<HTMLFormElement>) {
@@ -393,7 +573,7 @@ export default function TasksPage() {
           <span className="eyebrow">data_center</span>
           <h2>数据中心</h2>
         </div>
-        <p>管理日报任务记录与日报数据，支持发布、复核、作废、新建任务与日志回查。</p>
+        <p>管理日报任务记录与日报数据，支持发布、复核、重试、人工上传、作废与日志回查。</p>
       </section>
 
       <section className="report-stats">
@@ -440,39 +620,36 @@ export default function TasksPage() {
 
         <div className="ledger-filters" aria-label="平台与店铺筛选">
           <div className="data-subtabs platform-filter">
-            <button
-              className={(dataTab === 'tasks' ? taskPlatform : dailyPlatform) === '全部' ? 'selected' : ''}
-              type="button"
-              onClick={() => {
-                if (dataTab === 'tasks') {
+            {dataTab === 'tasks' ? (
+              <button
+                className={taskPlatform === '全部' ? 'selected' : ''}
+                type="button"
+                onClick={() => {
                   setTaskPlatform('全部')
                   setTaskStore('全部')
-                } else {
-                  setDailyPlatform('全部')
-                  setDailyStore('全部')
-                }
-              }}
-            >
-              全部
-            </button>
+                }}
+              >
+                全部
+              </button>
+            ) : null}
             {ledgerPlatforms.map((item) => (
-                  <button
-                    className={(dataTab === 'tasks' ? taskPlatform : dailyPlatform) === item ? 'selected' : ''}
-                    key={item}
-                    type="button"
-                    onClick={() => {
-                      if (dataTab === 'tasks') {
-                        setTaskPlatform(item)
-                        setTaskStore('全部')
-                      } else {
-                        setDailyPlatform(item)
-                        setDailyStore('全部')
-                      }
-                    }}
-                  >
-                    {item}
-                  </button>
-                ))}
+              <button
+                className={(dataTab === 'tasks' ? taskPlatform : dailyPlatform) === item ? 'selected' : ''}
+                key={item}
+                type="button"
+                onClick={() => {
+                  if (dataTab === 'tasks') {
+                    setTaskPlatform(item)
+                    setTaskStore('全部')
+                    return
+                  }
+                  setDailyPlatform(item)
+                  setDailyStore(uniqueValues(dailyData.filter((row) => row.platform === item).map((row) => row.store))[0] ?? '')
+                }}
+              >
+                {item}
+              </button>
+            ))}
           </div>
           <label className="store-filter">
             <span>店铺</span>
@@ -486,7 +663,7 @@ export default function TasksPage() {
                 setDailyStore(event.target.value)
               }}
             >
-              <option value="全部">全部店铺</option>
+              {dataTab === 'tasks' ? <option value="全部">全部店铺</option> : null}
               {(dataTab === 'tasks' ? taskStoreOptions : dailyStoreOptions).map((store) => (
                 <option key={store} value={store}>
                   {store}
@@ -505,18 +682,13 @@ export default function TasksPage() {
         </div>
       </section>
 
-      <article className="data-table-card upload-record-card task-record-card">
+      <article className={`data-table-card upload-record-card task-record-card ${dataTab === 'dailyData' ? 'daily-data-table' : ''}`}>
         <header>
           <div>
             <span className="eyebrow">{dataTab === 'tasks' ? 'daily_task_records' : 'daily_data'}</span>
             <h3>{dataTab === 'tasks' ? '日报任务记录' : '日报数据'}</h3>
           </div>
-          {dataTab === 'tasks' ? (
-            <button className="primary-action" type="button" onClick={() => { setCreateModalOpen(true); setCreateMode(null) }}>
-              <Plus aria-hidden="true" />
-              新建任务
-            </button>
-          ) : (
+          {dataTab === 'tasks' ? null : (
             <div className="table-header-actions">
               <span className="table-count">{visibleDailyData.length} 条日报数据</span>
               <button className="primary-action" type="button" onClick={() => { setDownloadDialogOpen(true); setDownloadPlatform('全部'); setDownloadStore('全部'); setDownloadStartDate(''); setDownloadEndDate(dateMinusOne()) }}>
@@ -568,6 +740,12 @@ export default function TasksPage() {
                           <button className="table-action" type="button" disabled={row.taskResult === '失败' || row.crossValidation !== '未通过' || row.isUnbound} onClick={() => openReview(row)}>
                             <Pencil aria-hidden="true" />修改
                           </button>
+                          <button className="table-action" type="button" disabled={row.isUnbound} onClick={() => openRetry(row)}>
+                            <RotateCcw aria-hidden="true" />重试
+                          </button>
+                          <button className="table-action" type="button" disabled={row.isUnbound} onClick={() => openManualUpload(row)}>
+                            <Upload aria-hidden="true" />人工上传
+                          </button>
                           <button className="table-action danger-action" type="button" disabled={row.isUnbound} onClick={() => unbindTask(row.taskId)}>
                             <Unlink aria-hidden="true" />{row.isUnbound ? '已解绑' : '作废'}
                           </button>
@@ -577,7 +755,12 @@ export default function TasksPage() {
                   ))
                 : visibleDailyData.map((row) => (
                     <tr key={row.taskId}>
-                      <td>{row.businessDate}</td><td>{row.platform}</td><td>{row.store}</td><td>{formatPrecise(row.gmv)}</td><td>{formatPrecise(row.platformFee)}</td><td>{formatPrecise(row.managementFee)}</td>
+                      <td>{row.businessDate}</td>
+                      <td>{row.platform}</td>
+                      <td>{row.store}</td>
+                      {dailyDataFields.map((field) => (
+                        <td key={field.key}>{formatDailyDataValue(row[field.key], field.valueType)}</td>
+                      ))}
                       <td><button className="preview-link" type="button" onClick={() => setPreviewTask(tasks.find((task) => task.taskId === row.taskId) ?? null)}><Eye aria-hidden="true" />查看明细</button></td>
                     </tr>
                   ))}
@@ -586,48 +769,11 @@ export default function TasksPage() {
         </div>
       </article>
 
-      {createModalOpen && createMode === null ? (
-        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setCreateModalOpen(false)}>
-          <section className="ledger-dialog create-task-dialog">
-            <header>
-              <div>
-                <span className="eyebrow">create_task</span>
-                <h3>新建任务</h3>
-              </div>
-              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setCreateModalOpen(false)}>×</button>
-            </header>
-            <p>请选择任务创建方式：</p>
-            <div className="create-task-options">
-              <button type="button" className="create-task-option" onClick={() => { setCreateMode('manual'); setIsUploadDialogOpen(true); setCreateModalOpen(false) }}>
-                <span className="create-task-option__icon"><Upload aria-hidden="true" /></span>
-                <div>
-                  <strong>人工上传文件</strong>
-                  <small>上传 Excel/CSV 文件，系统自动解析并创建任务记录</small>
-                </div>
-              </button>
-              <button type="button" className="create-task-option" onClick={() => {
-                setCreateMode('auto')
-                const firstStore = tasks.filter((t) => t.platform === '快手').map((t) => t.store)[0] ?? ''
-                setAutoPlatform('快手')
-                setAutoStore(firstStore)
-              }}>
-                <span className="create-task-option__icon create-task-option__icon--auto"><Sparkles aria-hidden="true" /></span>
-                <div>
-                  <strong>创建自动化任务</strong>
-                  <small>调用 skill 自动拉取平台数据并生成日报，消耗豌豆</small>
-                </div>
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
       {createMode === 'auto' ? (
-        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setCreateMode(null); setCreateModalOpen(false) } }}>
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateMode(null) }}>
           <form className="ledger-dialog create-task-dialog" onSubmit={(event) => {
             event.preventDefault()
             setCreateMode(null)
-            setCreateModalOpen(false)
             setTaskPlatform(autoPlatform)
             setTaskStore(autoStore)
             setLedgerNotice(`已创建 ${autoPlatform} · ${autoStore} 自动化任务，正在拉取平台数据...`)
@@ -635,9 +781,9 @@ export default function TasksPage() {
             <header>
               <div>
                 <span className="eyebrow">auto_task</span>
-                <h3>创建自动化任务</h3>
+                <h3>重新发起自动化任务</h3>
               </div>
-              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => { setCreateMode(null); setCreateModalOpen(false) }}>×</button>
+              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setCreateMode(null)}>×</button>
             </header>
             <p>选择目标平台与店铺，系统将调用 skill 自动拉取数据并生成日报。</p>
             <label className="dialog-field">
@@ -659,8 +805,8 @@ export default function TasksPage() {
             </label>
             <div className="dialog-meta"><span>来源：自动化任务</span><span>业务日期：{dateMinusOne()}</span><span>预计消耗：320 豌豆</span></div>
             <footer>
-              <button className="secondary-action" type="button" onClick={() => { setCreateMode(null); setCreateModalOpen(false) }}>取消</button>
-              <button className="primary-action" type="submit"><Sparkles aria-hidden="true" />创建任务</button>
+              <button className="secondary-action" type="button" onClick={() => setCreateMode(null)}>取消</button>
+              <button className="primary-action" type="submit"><RotateCcw aria-hidden="true" />重新发起</button>
             </footer>
           </form>
         </div>
@@ -715,6 +861,20 @@ export default function TasksPage() {
               <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setIsReviewDialogOpen(false)}>×</button>
             </header>
             <p>完成复核后，交叉验证结果会更新为“已修正”，任务可以继续发布。</p>
+            {reviewingTask ? <div className="review-field-groups">{taskPreviewGroups({ ...reviewingTask, reviewedFields: undefined }).map((group) => (
+              <section key={group.category} className="review-field-group">
+                <h4>{group.category}</h4>
+                <div className="review-metric-grid">
+                  {group.fields.map((field) => (
+                    <label key={field.field} className="dialog-field">
+                      <span>修正后 {field.field}</span>
+                      <input type="number" step="0.01" value={reviewFields[field.field] ?? field.originalValue} onChange={(event) => setReviewFields((fields) => ({ ...fields, [field.field]: Number(event.target.value) || 0 }))} />
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ))}</div> : null}
+            <p className="review-original-note">原始任务结果和运行日志将保留；仅修正后数据会在发布时写入日报数据。</p>
             <label className="dialog-field">
               <span>复核说明</span>
               <textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="请输入修正后的说明" rows={4} />
@@ -727,7 +887,7 @@ export default function TasksPage() {
         </div>
       ) : null}
 
-      {previewTask ? <TaskPreviewDialog task={previewTask} onClose={() => setPreviewTask(null)} /> : null}
+      {previewTask ? <TaskPreviewDialog task={previewTask} onClose={() => setPreviewTask(null)} onEdit={(task) => { setPreviewTask(null); openReview(task) }} /> : null}
       {logTask ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setLogTask(null)}><section className="ledger-dialog"><header><div><span className="eyebrow">task_log</span><h3>任务运行日志</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setLogTask(null)}>×</button></header><pre className="task-log">{logTask.taskLog}</pre></section></div> : null}
 
       {/* 下载日报数据弹窗 */}

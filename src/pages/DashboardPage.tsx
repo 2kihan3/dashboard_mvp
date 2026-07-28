@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart3, LineChart as LineChartIcon, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, LineChart as LineChartIcon, Plus, TrendingUp, Users } from 'lucide-react'
 import { type PlatformName, reportDataWithHaoyiku as reportData } from '../data/dailyReport'
 import { MetricChart } from '../components/MetricChart'
 import {
@@ -12,6 +12,8 @@ import {
   platforms,
   fieldPeriodValue,
 } from '../lib/metrics'
+
+type DashboardTab = 'global' | 'team' | 'personal'
 
 function MetricSummaryCard({ platform, period, field, label, sublabel }: { platform: PlatformName; period: Period; field: string; label: string; sublabel: string }) {
   const value = fieldSummaryValue(platform, field, period)
@@ -50,8 +52,10 @@ function MetricSummaryCard({ platform, period, field, label, sublabel }: { platf
 }
 
 export default function DashboardPage() {
+  const [activeTab, setActiveTab] = useState<DashboardTab>('global')
   const [period, setPeriod] = useState<Period>('day')
   const [platform, setPlatform] = useState<PlatformName>('总计')
+  const [personalDashboardCreated, setPersonalDashboardCreated] = useState(false)
   const periodText = period === 'day' ? '前一天' : period === 'week' ? '自然周' : period === 'month' ? '本月' : '本年'
   const specs = platformMetricSpecs[platform]
 
@@ -65,64 +69,129 @@ export default function DashboardPage() {
         <p>当前平台仅保留与经营判断直接相关的指标，单页内同时呈现总览与趋势。</p>
       </section>
 
-      <section className="filters" aria-label="全局筛选">
-        <div className="segmented">
-          {periods.map((item) => (
-            <button
-              className={period === item.key ? 'selected' : ''}
-              key={item.key}
-              type="button"
-              onClick={() => setPeriod(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="platform-tabs">
-          {platforms.map((item) => (
-            <button
-              className={platform === item ? 'selected' : ''}
-              key={item}
-              type="button"
-              onClick={() => setPlatform(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
+      <div className="dashboard-tabs" role="tablist" aria-label="经营看板类型">
+        <button type="button" role="tab" aria-selected={activeTab === 'global'} className={activeTab === 'global' ? 'active' : ''} onClick={() => setActiveTab('global')}>
+          <LayoutDashboard aria-hidden="true" />全局看板
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'team'} className={activeTab === 'team' ? 'active' : ''} onClick={() => setActiveTab('team')}>
+          <Users aria-hidden="true" />团队看板
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'personal'} className={activeTab === 'personal' ? 'active' : ''} onClick={() => setActiveTab('personal')}>
+          <LayoutDashboard aria-hidden="true" />个人看板
+        </button>
+      </div>
 
-      <section className="metric-summary-grid">
-        {specs.map((spec) => (
-          <MetricSummaryCard
-            key={spec.field}
-            platform={platform}
-            period={period}
-            field={spec.field}
-            label={spec.chartTitle}
-            sublabel={`${spec.category} · ${spec.field}`}
-          />
-        ))}
-      </section>
+      {activeTab === 'global' ? (
+        <>
+          <section className="filters" aria-label="全局筛选">
+            <div className="segmented">
+              {periods.map((item) => (
+                <button
+                  className={period === item.key ? 'selected' : ''}
+                  key={item.key}
+                  type="button"
+                  onClick={() => setPeriod(item.key)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="platform-tabs">
+              {platforms.map((item) => (
+                <button
+                  className={platform === item ? 'selected' : ''}
+                  key={item}
+                  type="button"
+                  onClick={() => setPlatform(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </section>
 
-      <section className="dashboard-grid">
-        {specs.map((spec) => (
-          <MetricChart key={spec.field} platform={platform} period={period} spec={spec} />
-        ))}
-      </section>
+          <section className="metric-summary-grid">
+            {specs.map((spec) => (
+              <MetricSummaryCard
+                key={spec.field}
+                platform={platform}
+                period={period}
+                field={spec.field}
+                label={spec.chartTitle}
+                sublabel={`${spec.category} · ${spec.field}`}
+              />
+            ))}
+          </section>
 
-      <section className="dashboard-source-note">
-        <LineChartIcon aria-hidden="true" />
-        <span>数据范围：{reportData.map((item) => item.platform).join(' / ')} · 周期与平台切换会同步刷新指标卡与图表。</span>
-      </section>
+          <section className="dashboard-grid">
+            {specs.map((spec) => (
+              <MetricChart key={spec.field} platform={platform} period={period} spec={spec} />
+            ))}
+          </section>
 
-      <section className="dashboard-engine-hint">
-        <BarChart3 aria-hidden="true" />
-        <div>
-          <strong>需要更细的拆解？</strong>
-          <span>切到 chatbot 直接追问，经营引擎会基于这些数据生成归因结论。</span>
-        </div>
-      </section>
+          <section className="dashboard-source-note">
+            <LineChartIcon aria-hidden="true" />
+            <span>数据范围：{reportData.map((item) => item.platform).join(' / ')} · 周期与平台切换会同步刷新指标卡与图表。</span>
+          </section>
+        </>
+      ) : null}
+
+      {activeTab === 'team' ? (
+        <>
+          <section className="filters" aria-label="团队看板筛选">
+            <div className="segmented">
+              {periods.map((item) => (
+                <button className={period === item.key ? 'selected' : ''} key={item.key} type="button" onClick={() => setPeriod(item.key)}>{item.label}</button>
+              ))}
+            </div>
+            <div className="platform-tabs">
+              {platforms.map((item) => (
+                <button className={platform === item ? 'selected' : ''} key={item} type="button" onClick={() => setPlatform(item)}>{item}</button>
+              ))}
+            </div>
+          </section>
+
+          <section className="team-dashboard-layout">
+            <article className="team-dashboard-summary">
+              <header>
+                <span className="eyebrow">team_overview</span>
+                <h3>团队指标概览</h3>
+                <p>{platform} · {periodText}</p>
+              </header>
+              <div className="team-dashboard-metrics">
+                {specs.map((spec) => (
+                  <MetricSummaryCard key={spec.field} platform={platform} period={period} field={spec.field} label={spec.chartTitle} sublabel={`${spec.category} · ${spec.field}`} />
+                ))}
+              </div>
+            </article>
+            <section className="team-dashboard-charts">
+              {specs.map((spec) => (
+                <MetricChart key={spec.field} platform={platform} period={period} spec={spec} />
+              ))}
+            </section>
+          </section>
+        </>
+      ) : null}
+
+      {activeTab === 'personal' ? (
+        personalDashboardCreated ? (
+          <section className="personal-dashboard-ready">
+            <LayoutDashboard aria-hidden="true" />
+            <div>
+              <span className="eyebrow">personal_dashboard</span>
+              <h3>我的新看板</h3>
+              <p>看板已创建，可从团队公共模板开始配置。</p>
+            </div>
+          </section>
+        ) : (
+          <section className="personal-dashboard-empty">
+            <span className="personal-dashboard-empty__icon"><LayoutDashboard aria-hidden="true" /></span>
+            <h3>还没有个人看板</h3>
+            <p>创建后可按自己的工作重点组织经营指标。</p>
+            <button type="button" className="primary-action" onClick={() => setPersonalDashboardCreated(true)}><Plus aria-hidden="true" />新建看板</button>
+          </section>
+        )
+      ) : null}
     </section>
   )
 }
