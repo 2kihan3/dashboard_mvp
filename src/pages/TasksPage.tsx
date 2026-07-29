@@ -459,6 +459,8 @@ export default function TasksPage() {
   const [downloadStore, setDownloadStore] = useState<DataStoreFilter>('全部')
   const [downloadStartDate, setDownloadStartDate] = useState('')
   const [downloadEndDate, setDownloadEndDate] = useState(dateMinusOne())
+  const [editingDailyData, setEditingDailyData] = useState<DailyDataRecord | null>(null)
+  const [dailyFillValues, setDailyFillValues] = useState<Partial<Record<DailyDataMetricKey, string>>>({})
   const taskStoreOptions = uniqueValues(tasks.filter((task) => taskPlatform === '全部' || task.platform === taskPlatform).map((task) => task.store))
   const dailyStoreOptions = uniqueValues(dailyData.filter((row) => row.platform === dailyPlatform).map((row) => row.store))
   const downloadStoreOptions = uniqueValues(dailyData.filter((row) => downloadPlatform === '全部' || row.platform === downloadPlatform).map((row) => row.store))
@@ -477,7 +479,31 @@ export default function TasksPage() {
     .sort((left, right) => right.businessDate.localeCompare(left.businessDate))
   const reviewingTask = tasks.find((task) => task.taskId === reviewingTaskId) ?? null
   const dailyDataFields = dailyDataFieldsByPlatform[dailyPlatform]
-  const dailyDataColumns = ['业务日期', '平台名称', '店铺名称', ...dailyDataFields.map((field) => field.label), '查看明细']
+  const dailyDataColumns = ['业务日期', '平台名称', '店铺名称', ...dailyDataFields.map((field) => field.label), '查看明细', '操作项']
+
+  function openDailyDataFill(row: DailyDataRecord) {
+    const fields = dailyDataFieldsByPlatform[row.platform]
+    setDailyFillValues(Object.fromEntries(fields.map((field) => {
+      const value = row[field.key]
+      const displayValue = value === null ? '' : field.valueType === 'ratio' ? String(value * 100) : String(value)
+      return [field.key, displayValue]
+    })))
+    setEditingDailyData(row)
+  }
+
+  function saveDailyDataFill() {
+    if (!editingDailyData) return
+    const fields = dailyDataFieldsByPlatform[editingDailyData.platform]
+    const updates = Object.fromEntries(fields.flatMap((field) => {
+      const input = dailyFillValues[field.key]?.trim()
+      const value = Number(input)
+      if (!input || !Number.isFinite(value)) return []
+      return [[field.key, field.valueType === 'ratio' ? value / 100 : value]]
+    })) as Partial<DailyDataRecord>
+    setDailyData((rows) => rows.map((row) => row.taskId === editingDailyData.taskId ? { ...row, ...updates } : row))
+    setEditingDailyData(null)
+    setLedgerNotice('日报数据已手动更新')
+  }
 
   function publishTask(taskId: string) {
     const task = tasks.find((item) => item.taskId === taskId)
@@ -576,7 +602,7 @@ export default function TasksPage() {
         <p>管理日报任务记录与日报数据，支持发布、复核、重试、人工上传、作废与日志回查。</p>
       </section>
 
-      <section className="report-stats">
+      <section className="report-stats" data-prd-anchor="tasks-summary">
         <article className="report-stat-card">
           <span className="report-stat-card__icon"><FileText aria-hidden="true" /></span>
           <div>
@@ -600,7 +626,7 @@ export default function TasksPage() {
         </article>
       </section>
 
-      <section className="data-toolbar">
+      <section className="data-toolbar" data-prd-anchor="tasks-filters">
         <div className="data-subtabs ledger-tabs" aria-label="数据表切换">
           <button
             className={dataTab === 'tasks' ? 'selected' : ''}
@@ -682,7 +708,7 @@ export default function TasksPage() {
         </div>
       </section>
 
-      <article className={`data-table-card upload-record-card task-record-card ${dataTab === 'dailyData' ? 'daily-data-table' : ''}`}>
+      <article className={`data-table-card upload-record-card task-record-card ${dataTab === 'dailyData' ? 'daily-data-table' : ''}`} data-prd-anchor="tasks-ledger">
         <header>
           <div>
             <span className="eyebrow">{dataTab === 'tasks' ? 'daily_task_records' : 'daily_data'}</span>
@@ -762,6 +788,7 @@ export default function TasksPage() {
                         <td key={field.key}>{formatDailyDataValue(row[field.key], field.valueType)}</td>
                       ))}
                       <td><button className="preview-link" type="button" onClick={() => setPreviewTask(tasks.find((task) => task.taskId === row.taskId) ?? null)}><Eye aria-hidden="true" />查看明细</button></td>
+                      <td><button className="table-action" type="button" onClick={() => openDailyDataFill(row)}><Pencil aria-hidden="true" />手动填写</button></td>
                     </tr>
                   ))}
             </tbody>
@@ -882,6 +909,34 @@ export default function TasksPage() {
             <footer>
               <button className="secondary-action" type="button" onClick={() => setIsReviewDialogOpen(false)}>取消</button>
               <button className="primary-action" type="submit"><CheckCircle2 aria-hidden="true" />完成复核</button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+
+      {editingDailyData ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingDailyData(null)}>
+          <form className="ledger-dialog manual-daily-dialog" onSubmit={(event) => { event.preventDefault(); saveDailyDataFill() }}>
+            <header>
+              <div>
+                <span className="eyebrow">manual_daily_data</span>
+                <h3>手动填写日报数据</h3>
+              </div>
+              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setEditingDailyData(null)}>×</button>
+            </header>
+            <div className="dialog-meta"><span>业务日期：{editingDailyData.businessDate}</span><span>平台：{editingDailyData.platform}</span><span>店铺：{editingDailyData.store}</span></div>
+            <p>仅填写当前平台适用字段；留空的字段将保留原值。</p>
+            <div className="manual-daily-fields">
+              {dailyDataFieldsByPlatform[editingDailyData.platform].map((field) => (
+                <label key={field.key} className="dialog-field">
+                  <span>{field.label}{field.valueType === 'ratio' ? '（%）' : ''}</span>
+                  <input type="number" step="0.01" value={dailyFillValues[field.key] ?? ''} onChange={(event) => setDailyFillValues((values) => ({ ...values, [field.key]: event.target.value }))} />
+                </label>
+              ))}
+            </div>
+            <footer>
+              <button className="secondary-action" type="button" onClick={() => setEditingDailyData(null)}>取消</button>
+              <button className="primary-action" type="submit"><CheckCircle2 aria-hidden="true" />保存数据</button>
             </footer>
           </form>
         </div>

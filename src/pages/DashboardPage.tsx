@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BarChart3, ChartNoAxesCombined, LayoutDashboard, LineChart as LineChartIcon, Plus, TrendingUp, Users } from 'lucide-react'
+import { BarChart3, ChartNoAxesCombined, LineChart as LineChartIcon, PanelTop, Plus, Settings2, TrendingUp, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { type PlatformName, reportDataWithHaoyiku as reportData } from '../data/dailyReport'
 import { ChartShell, MetricChart } from '../components/MetricChart'
@@ -16,7 +16,8 @@ import {
   fieldPeriodValue,
 } from '../lib/metrics'
 
-type DashboardTab = 'global' | 'team' | 'personal'
+type DashboardView = 'global' | 'team' | 'personal'
+type PersonalComponentType = 'chart' | 'metric'
 
 const tooltipStyle = { background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }
 const axisProps = { tickLine: false, axisLine: false, stroke: '#8da39b', fontSize: 11 }
@@ -98,27 +99,200 @@ function TeamDashboard({ period, platform, onPeriodChange, onPlatformChange }: {
   )
 }
 
+function PersonalDashboard({ period }: { period: Period }) {
+  const [dashboardCreated, setDashboardCreated] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [componentType, setComponentType] = useState<PersonalComponentType | null>(null)
+  const [componentAdded, setComponentAdded] = useState<PersonalComponentType | null>(null)
+  const [title, setTitle] = useState('销售趋势')
+  const [description, setDescription] = useState('')
+  const [dataSource, setDataSource] = useState('日报数据')
+  const [primaryMetric, setPrimaryMetric] = useState('GMV')
+  const [timeField, setTimeField] = useState('业务日期')
+  const [timeRange, setTimeRange] = useState('跟随看板时间维度')
+  const [platformScope, setPlatformScope] = useState('跟随全局筛选')
+  const [storeScope, setStoreScope] = useState('跟随全局筛选')
+  const [extraFilter, setExtraFilter] = useState('仅已发布日报')
+  const [permissionScope, setPermissionScope] = useState('自动继承')
+  const [refreshMode, setRefreshMode] = useState('跟随页面刷新')
+  const [chartType, setChartType] = useState('折线图')
+  const [xAxis, setXAxis] = useState('业务日期')
+  const [yAxis, setYAxis] = useState('GMV、净利润')
+  const [groupBy, setGroupBy] = useState('平台')
+  const [stackMode, setStackMode] = useState('不堆叠')
+  const [secondaryAxis, setSecondaryAxis] = useState('无')
+  const [sortBy, setSortBy] = useState('时间顺序')
+  const [sortOrder, setSortOrder] = useState('正序')
+  const [emptyCell, setEmptyCell] = useState('空')
+  const [legendVisible, setLegendVisible] = useState(true)
+  const [axisVisible, setAxisVisible] = useState(true)
+  const [gridVisible, setGridVisible] = useState(true)
+  const [valueLabel, setValueLabel] = useState('悬停显示')
+  const [unitDisplay, setUnitDisplay] = useState('自动继承指标')
+  const [metricMethod, setMetricMethod] = useState('统计字段数值')
+  const [statisticField, setStatisticField] = useState('GMV')
+  const [aggregatePeriod, setAggregatePeriod] = useState('跟随看板')
+  const [comparisonEnabled, setComparisonEnabled] = useState(false)
+  const [comparisonMode, setComparisonMode] = useState('同比')
+  const [comparisonText, setComparisonText] = useState('较上期')
+  const [comparisonType, setComparisonType] = useState('差异率')
+  const [targetValue, setTargetValue] = useState('')
+  const [warningRule, setWarningRule] = useState('不设置')
+  const [numberFormat, setNumberFormat] = useState('自动')
+  const [precision, setPrecision] = useState('2')
+  const [miniTrend, setMiniTrend] = useState('迷你折线')
+  const [helperText, setHelperText] = useState('')
+
+  function startConfig(type: PersonalComponentType) {
+    setComponentType(type)
+    setTitle(type === 'chart' ? '销售趋势' : 'GMV 总览')
+    setPickerOpen(false)
+  }
+
+  function addComponent() {
+    if (!componentType) return
+    setComponentAdded(componentType)
+    setComponentType(null)
+  }
+
+  if (!dashboardCreated) {
+    return (
+      <section className="personal-dashboard-empty" data-prd-anchor="dashboard-personal-entry">
+        <span className="personal-dashboard-empty__icon"><PanelTop aria-hidden="true" /></span>
+        <h3>还没有个人看板</h3>
+        <p>从空白看板开始，把日常关注的图表和指标放在自己的工作区。</p>
+        <button type="button" className="primary-action" onClick={() => setDashboardCreated(true)}><Plus aria-hidden="true" />新建看板</button>
+      </section>
+    )
+  }
+
+  return (
+    <section className="personal-dashboard" data-prd-anchor="dashboard-personal-builder">
+      <header className="personal-dashboard__head">
+        <div><span className="eyebrow">personal_dashboard · {period === 'day' ? '日' : period === 'week' ? '周' : period === 'month' ? '月' : '年'}维度</span><h2>我的新看板</h2></div>
+        <button className="primary-action" type="button" onClick={() => { setPickerOpen(true); setComponentType(null) }}><Plus aria-hidden="true" />添加组件</button>
+      </header>
+      <div className={`personal-dashboard__workspace ${componentType ? 'is-configuring' : ''}`}>
+        <main className="personal-dashboard__canvas">
+          {componentType ? (
+            <section className="component-config-preview">
+              <header><div><span className="eyebrow">preview</span><h3>组件效果预览</h3></div><span>{componentType === 'chart' ? chartType : '指标卡片'}</span></header>
+              <article className={`component-config-preview__surface component-config-preview__surface--${componentType}`}>
+                <span className="eyebrow">{dataSource} · {componentType === 'chart' ? xAxis : primaryMetric}</span>
+                <h4>{title || (componentType === 'chart' ? '未命名统计图' : '未命名指标卡片')}</h4>
+                {componentType === 'chart' ? <><div className="component-config-preview__chart"><i /><i /><i /><i /><i /><i /><i /></div><div className="component-config-preview__legend">{yAxis.split('、').map((metric) => <span key={metric}>{metric}</span>)}</div></> : <><strong>{metricMethod === '统计记录总数' ? '128' : '126,840'}</strong><p>{comparisonEnabled ? `${comparisonText} ${comparisonType === '差异率' ? '+8.2%' : '+9,610'}` : helperText || '当前看板时间范围内汇总'}</p>{miniTrend === '不显示' ? null : <div className="component-config-preview__spark"><i /><i /><i /><i /><i /><i /></div>}</>}
+              </article>
+              <dl className="component-config-preview__summary"><div><dt>数据范围</dt><dd>{dataSource} · {timeRange}</dd></div><div><dt>主指标</dt><dd>{primaryMetric} · {permissionScope}</dd></div></dl>
+            </section>
+          ) : pickerOpen ? (
+            <section className="component-type-picker">
+              <header><span className="eyebrow">step 1</span><h3>选择组件类型</h3></header>
+              <div>
+                <button type="button" onClick={() => startConfig('chart')}><BarChart3 aria-hidden="true" /><strong>统计图</strong><span>用图表观察趋势、构成和分布</span></button>
+                <button type="button" onClick={() => startConfig('metric')}><PanelTop aria-hidden="true" /><strong>指标卡片</strong><span>突出展示一个核心统计结果</span></button>
+              </div>
+            </section>
+          ) : componentAdded ? (
+            <article className="personal-component-preview">
+              <header><span className="eyebrow">{componentAdded === 'chart' ? 'chart_component' : 'metric_component'}</span><button type="button" aria-label="重新配置组件" onClick={() => setComponentType(componentAdded)}><Settings2 aria-hidden="true" /></button></header>
+              <h3>{title}</h3>
+              {componentAdded === 'chart' ? <><div className="personal-component-preview__chart"><i /><i /><i /><i /><i /><i /></div><p>{chartType} · 数据范围跟随当前看板时间维度</p></> : <><strong>{metricMethod === '统计记录总数' ? '128' : '126,840'}</strong><p>{comparisonEnabled ? `${comparisonText} ${comparisonType === '差异率' ? '+8.2%' : '+9,610'}` : '未开启同比'}</p></>}
+            </article>
+          ) : (
+            <section className="personal-dashboard__blank"><PanelTop aria-hidden="true" /><h3>从第一个组件开始</h3><p>先选择统计图或指标卡片，再配置它要展示的数据。</p><button type="button" className="secondary-action" onClick={() => setPickerOpen(true)}><Plus aria-hidden="true" />添加组件</button></section>
+          )}
+        </main>
+
+        {componentType ? (
+          <aside className="component-configurator" aria-label="组件配置示例页">
+            <header><div><span className="eyebrow">step 2 · configuration</span><h3>{componentType === 'chart' ? '新建统计图' : '新建数据卡'}</h3></div><button type="button" aria-label="关闭配置页" onClick={() => setComponentType(null)}><X aria-hidden="true" /></button></header>
+            <div className="component-configurator__body">
+              <section className="config-section config-section--first">
+                <h4>基础信息</h4>
+                <label className="dialog-field"><span>组件类型</span><input value={componentType === 'chart' ? '统计图' : '数据卡'} readOnly /></label>
+                <label className="dialog-field"><span>组件名称</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="填写组件名称" /></label>
+                <label className="dialog-field"><span>描述</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="补充组件用途或阅读口径" rows={3} /></label>
+              </section>
+
+              <section className="config-section">
+                <h4>数据范围</h4>
+                <label className="dialog-field"><span>数据集</span><select value={dataSource} onChange={(event) => setDataSource(event.target.value)}><option>日报数据</option><option>自动化任务</option></select></label>
+                <label className="dialog-field"><span>主指标</span><select value={primaryMetric} onChange={(event) => setPrimaryMetric(event.target.value)}><option>GMV</option><option>实际销售</option><option>平台费用</option><option>净利润</option><option>净利润率</option><option>任务完成率</option></select></label>
+                <label className="dialog-field"><span>时间字段</span><select value={timeField} onChange={(event) => setTimeField(event.target.value)}><option>业务日期</option><option>任务日期</option></select></label>
+                <label className="dialog-field"><span>时间范围</span><select value={timeRange} onChange={(event) => setTimeRange(event.target.value)}><option>跟随看板时间维度</option><option>近 7 天</option><option>本月</option><option>本年</option><option>自定义时间范围</option></select></label>
+                <label className="dialog-field"><span>平台范围</span><select value={platformScope} onChange={(event) => setPlatformScope(event.target.value)}><option>跟随全局筛选</option><option>全部平台</option><option>指定平台</option></select></label>
+                <label className="dialog-field"><span>店铺范围</span><select value={storeScope} onChange={(event) => setStoreScope(event.target.value)}><option>跟随全局筛选</option><option>全部店铺</option><option>指定店铺</option></select></label>
+                <label className="dialog-field"><span>其他筛选条件</span><input value={extraFilter} onChange={(event) => setExtraFilter(event.target.value)} placeholder="例如：仅已发布日报" /></label>
+                <label className="dialog-field"><span>数据权限范围</span><select value={permissionScope} onChange={(event) => setPermissionScope(event.target.value)}><option>自动继承</option><option>团队范围</option><option>创建者范围</option></select></label>
+              </section>
+
+              <section className="config-section">
+                <h4>刷新</h4>
+                <label className="dialog-field"><span>刷新方式</span><select value={refreshMode} onChange={(event) => setRefreshMode(event.target.value)}><option>跟随页面刷新</option><option>手动刷新</option><option>定时刷新</option></select></label>
+                <label className="dialog-field"><span>最近数据时间</span><input value="2026-07-28 08:30" readOnly /></label>
+              </section>
+
+              {componentType === 'chart' ? <>
+                <section className="config-section"><h4>图表结构</h4>
+                  <label className="dialog-field"><span>图表类型</span><select value={chartType} onChange={(event) => setChartType(event.target.value)}><option>柱状图</option><option>叠加柱状图</option><option>折线图</option><option>平滑折线图</option><option>饼图</option></select></label>
+                  <label className="dialog-field"><span>横轴维度</span><select value={xAxis} onChange={(event) => setXAxis(event.target.value)}><option>业务日期</option><option>平台</option><option>店铺</option><option>平台 + 店铺</option><option>任务来源</option></select></label>
+                  <label className="dialog-field"><span>纵轴指标</span><select value={yAxis} onChange={(event) => setYAxis(event.target.value)}><option>GMV、净利润</option><option>GMV、平台费用</option><option>净利润、净利润率</option><option>任务完成数、失败数</option></select></label>
+                  <label className="dialog-field"><span>分组维度</span><select value={groupBy} onChange={(event) => setGroupBy(event.target.value)}><option>不分组</option><option>平台</option><option>店铺</option><option>任务状态</option></select></label>
+                  <label className="dialog-field"><span>堆叠方式</span><select value={stackMode} onChange={(event) => setStackMode(event.target.value)}><option>不堆叠</option><option>普通堆叠</option><option>百分比堆叠</option></select></label>
+                  <label className="dialog-field"><span>次坐标轴指标</span><select value={secondaryAxis} onChange={(event) => setSecondaryAxis(event.target.value)}><option>无</option><option>净利润率</option><option>任务完成率</option></select></label>
+                </section>
+                <section className="config-section"><h4>排序与空值</h4>
+                  <label className="dialog-field"><span>排序依据</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option>纵轴值</option><option>横轴值</option><option>时间顺序</option><option>指标名称</option></select></label>
+                  <label className="dialog-field"><span>排序规则</span><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}><option>正序</option><option>倒序</option></select></label>
+                  <label className="dialog-field"><span>空单元格</span><select value={emptyCell} onChange={(event) => setEmptyCell(event.target.value)}><option>空</option><option>按 0</option>{chartType.includes('折线') ? <option>前值连线</option> : null}</select></label>
+                </section>
+                <section className="config-section"><h4>展示</h4>
+                  <label className="config-switch"><input type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label>
+                  <label className="config-switch"><input type="checkbox" checked={axisVisible} onChange={(event) => setAxisVisible(event.target.checked)} /><span>显示坐标轴</span></label>
+                  <label className="config-switch"><input type="checkbox" checked={gridVisible} onChange={(event) => setGridVisible(event.target.checked)} /><span>显示网格线</span></label>
+                  <label className="dialog-field"><span>数值标签</span><select value={valueLabel} onChange={(event) => setValueLabel(event.target.value)}><option>不显示</option><option>始终显示</option><option>悬停显示</option></select></label>
+                  <label className="dialog-field"><span>单位显示</span><select value={unitDisplay} onChange={(event) => setUnitDisplay(event.target.value)}><option>自动继承指标</option><option>强制显示</option><option>隐藏</option></select></label>
+                </section>
+              </> : <>
+                <section className="config-section"><h4>指标内容</h4>
+                  <label className="dialog-field"><span>主指标</span><select value={primaryMetric} onChange={(event) => setPrimaryMetric(event.target.value)}><option>GMV</option><option>净利润</option><option>净利润率</option><option>任务完成率</option></select></label>
+                  <label className="dialog-field"><span>统计方式</span><select value={metricMethod} onChange={(event) => setMetricMethod(event.target.value)}><option>统计字段数值</option><option>统计记录总数</option><option>去重记录数</option><option>最大值</option><option>最小值</option><option>平均值</option></select></label>
+                  <label className="dialog-field"><span>统计字段</span><select value={statisticField} onChange={(event) => setStatisticField(event.target.value)} disabled={metricMethod === '统计记录总数'}><option>GMV</option><option>净利润</option><option>平台费用</option><option>任务 ID</option></select></label>
+                  <label className="dialog-field"><span>汇总周期</span><select value={aggregatePeriod} onChange={(event) => setAggregatePeriod(event.target.value)}><option>跟随看板</option><option>当日</option><option>本周</option><option>本月</option><option>本年</option><option>累计</option></select></label>
+                </section>
+                <section className="config-section"><h4>对比</h4>
+                  <label className="config-switch"><input type="checkbox" checked={comparisonEnabled} onChange={(event) => setComparisonEnabled(event.target.checked)} /><span>开启对比</span></label>
+                  <p className="config-fixed-note">时间依据：业务日期；对比时间范围跟随当前看板维度。</p>
+                  {comparisonEnabled ? <><label className="dialog-field"><span>对比类型</span><select value={comparisonMode} onChange={(event) => setComparisonMode(event.target.value)}><option>同比</option><option>环比</option><option>自定义比较周期</option></select></label><label className="dialog-field"><span>对比描述</span><input value={comparisonText} onChange={(event) => setComparisonText(event.target.value)} placeholder="例如：较上期" /></label><label className="dialog-field"><span>计算类型</span><select value={comparisonType} onChange={(event) => setComparisonType(event.target.value)}><option>差值</option><option>差异率</option></select></label></> : null}
+                </section>
+                <section className="config-section"><h4>阈值与展示</h4>
+                  <label className="dialog-field"><span>目标值</span><input type="number" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} placeholder="不设置" /></label>
+                  <label className="dialog-field"><span>预警规则</span><select value={warningRule} onChange={(event) => setWarningRule(event.target.value)}><option>不设置</option><option>大于目标值</option><option>小于目标值</option><option>区间外</option></select></label>
+                  <label className="dialog-field"><span>数值格式</span><select value={numberFormat} onChange={(event) => setNumberFormat(event.target.value)}><option>自动</option><option>金额</option><option>数量</option><option>百分比</option><option>小数</option></select></label>
+                  <label className="dialog-field"><span>小数位</span><select value={precision} onChange={(event) => setPrecision(event.target.value)}><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
+                  <label className="dialog-field"><span>趋势图</span><select value={miniTrend} onChange={(event) => setMiniTrend(event.target.value)}><option>不显示</option><option>迷你折线</option><option>迷你柱图</option></select></label>
+                  <label className="dialog-field"><span>辅助文案</span><input value={helperText} onChange={(event) => setHelperText(event.target.value)} placeholder="例如：本月累计" /></label>
+                </section>
+              </>}
+            </div>
+            <footer><button className="secondary-action" type="button" onClick={() => setComponentType(null)}>取消</button><button className="primary-action" type="button" onClick={addComponent}>添加到看板</button></footer>
+          </aside>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<DashboardTab>('global')
+  const [view, setView] = useState<DashboardView>('global')
   const [period, setPeriod] = useState<Period>('day')
   const [platform, setPlatform] = useState<PlatformName>('总计')
-  const [personalDashboardCreated, setPersonalDashboardCreated] = useState(false)
   return (
     <section className="page-stack dashboard-page">
-      <nav className="dashboard-tabs" role="tablist" aria-label="经营看板类型">
-        <button type="button" role="tab" aria-selected={activeTab === 'global'} className={activeTab === 'global' ? 'active' : ''} onClick={() => setActiveTab('global')}><LayoutDashboard aria-hidden="true" />全局看板</button>
-        <button type="button" role="tab" aria-selected={activeTab === 'team'} className={activeTab === 'team' ? 'active' : ''} onClick={() => setActiveTab('team')}><Users aria-hidden="true" />团队看板</button>
-        <button type="button" role="tab" aria-selected={activeTab === 'personal'} className={activeTab === 'personal' ? 'active' : ''} onClick={() => setActiveTab('personal')}><LayoutDashboard aria-hidden="true" />个人看板</button>
-      </nav>
-      {activeTab === 'global' ? <GlobalDashboard period={period} onPeriodChange={setPeriod} /> : null}
-      {activeTab === 'team' ? <TeamDashboard period={period} platform={platform} onPeriodChange={setPeriod} onPlatformChange={setPlatform} /> : null}
-      {activeTab === 'personal' ? (
-        personalDashboardCreated ? (
-          <section className="personal-dashboard-ready"><LayoutDashboard aria-hidden="true" /><div><span className="eyebrow">personal_dashboard</span><h3>我的新看板</h3><p>看板已创建，可从团队公共模板开始配置。</p></div></section>
-        ) : (
-          <section className="personal-dashboard-empty"><span className="personal-dashboard-empty__icon"><LayoutDashboard aria-hidden="true" /></span><h3>还没有个人看板</h3><p>创建后可按自己的工作重点组织经营指标。</p><button type="button" className="primary-action" onClick={() => setPersonalDashboardCreated(true)}><Plus aria-hidden="true" />新建看板</button></section>
-        )
-      ) : null}
+      <nav className="dashboard-view-tabs" aria-label="看板范围" data-prd-anchor="dashboard-view-tabs"><button className={view === 'global' ? 'selected' : ''} type="button" onClick={() => setView('global')}>全局看板</button><button className={view === 'team' ? 'selected' : ''} type="button" onClick={() => setView('team')}>团队看板</button><button className={view === 'personal' ? 'selected' : ''} type="button" onClick={() => setView('personal')}>个人看板</button></nav>
+      {view === 'global' ? <GlobalDashboard period={period} onPeriodChange={setPeriod} /> : null}
+      {view === 'team' ? <TeamDashboard period={period} platform={platform} onPeriodChange={setPeriod} onPlatformChange={setPlatform} /> : null}
+      {view === 'personal' ? <PersonalDashboard period={period} /> : null}
     </section>
   )
 }
