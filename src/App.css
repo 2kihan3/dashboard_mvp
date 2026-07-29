@@ -528,6 +528,12 @@
 .dashboard-tabs button:hover { color: var(--mist); }
 .dashboard-tabs button.active { color: var(--aqua); border-bottom-color: var(--aqua); }
 .dashboard-tabs button svg { width: 14px; }
+.global-dashboard-head { border-color: rgba(95, 183, 230, .28); }
+.global-dashboard-filter { justify-content: space-between; }
+.global-dashboard-filter__hint { color: var(--faint); font-family: "DM Mono", monospace; font-size: 11px; }
+.global-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.global-chart-grid .chart-shell { min-height: 410px; }
+.global-chart-note { margin: 2px 0 0; color: var(--faint); font-size: 11px; line-height: 1.65; }
 
 .metric-summary-grid {
   display: grid;
@@ -1507,6 +1513,7 @@
   .chatbot-rail { max-height: 280px; }
   .chat-preview-panel { width: auto; }
   .topbar { padding: 16px; }
+  .global-chart-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   .app-shell *, .app-shell *::before, .app-shell *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
