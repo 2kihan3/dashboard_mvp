@@ -27,7 +27,6 @@ type PeaTab = 'all' | 'daily' | 'other'
 type TaskSource = '定时任务' | '指令' | '人工上传文件'
 type TaskResult = '完成' | '失败'
 type DailyReportStatus = '待发布' | '已发布' | '未发布'
-type CrossValidationStatus = '通过' | '未通过' | '已修正'
 
 interface Team {
   id: string
@@ -83,7 +82,6 @@ interface PeaRecord {
   resultPreview: string // 结果预览
   taskResult: TaskResult // 任务结果
   reportStatus: DailyReportStatus // 日报状态
-  crossValidation: CrossValidationStatus // 交叉验证
   taskLog: string // 任务日志
 }
 
@@ -131,49 +129,49 @@ const peaRecords: PeaRecord[] = [
   {
     id: 'pr-1', taskId: '20260714KSGFGJ001', taskType: 'daily', source: '定时任务', platform: '快手', store: '官方旗舰店',
     taskDate: '2026-07-14 08:05', businessDate: '2026-07-13', peaCost: 320, owner: '李运营', reviewer: '张管理员',
-    resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布', crossValidation: '通过',
+    resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布',
     taskLog: '08:05 拉取快手日报；08:06 完成字段校验；08:05:14 任务结束。',
   },
   {
     id: 'pr-2', taskId: '20260714AKJBSP001', taskType: 'daily', source: '定时任务', platform: '爱库存', store: '京倍店铺',
     taskDate: '2026-07-14 08:11', businessDate: '2026-07-13', peaCost: 280, owner: '陈分析', reviewer: '',
-    resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布', crossValidation: '未通过',
+    resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布',
     taskLog: '08:11 拉取爱库存费用数据；品牌推广费为空，等待人工复核。',
   },
   {
     id: 'pr-3', taskId: '20260714WPPPJH001', taskType: 'daily', source: '指令', platform: '唯品会', store: '品牌集合店',
     taskDate: '2026-07-14 08:18', businessDate: '2026-07-13', peaCost: 450, owner: '王财务', reviewer: '张管理员',
-    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布', crossValidation: '已修正',
+    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '08:18 接收补数指令；08:19 完成唯品会字段复核并发布。',
   },
   {
     id: 'pr-4', taskId: '20260714DYDYSP001', taskType: 'daily', source: '定时任务', platform: '抖店', store: '抖店旗舰店',
     taskDate: '2026-07-14 08:24', businessDate: '2026-07-13', peaCost: 80, owner: '李运营', reviewer: '',
-    resultPreview: '--', taskResult: '失败', reportStatus: '未发布', crossValidation: '未通过',
+    resultPreview: '--', taskResult: '失败', reportStatus: '未发布',
     taskLog: '08:24 调用抖店任务失败：授权令牌失效。',
   },
   {
     id: 'pr-5', taskId: '20260714HYKSP001', taskType: 'daily', source: '定时任务', platform: '好衣库', store: '好衣库店铺',
     taskDate: '2026-07-14 08:30', businessDate: '2026-07-13', peaCost: 360, owner: '张管理员', reviewer: '王财务',
-    resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布', crossValidation: '通过',
+    resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布',
     taskLog: '08:30 拉取好衣库日报；08:31 完成字段校验；08:30:15 任务结束。',
   },
   {
     id: 'pr-6', taskId: '20260714FEE001', taskType: 'other', source: '指令', platform: '快手', store: '官方旗舰店',
     taskDate: '2026-07-14 09:15', businessDate: '2026-07-13', peaCost: 180, owner: '陈分析', reviewer: '张管理员',
-    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布', crossValidation: '通过',
+    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '09:15 执行费用差异排查任务；09:16 生成报告。',
   },
   {
     id: 'pr-7', taskId: '20260714ROI001', taskType: 'other', source: '指令', platform: '快手', store: '官方旗舰店',
     taskDate: '2026-07-14 10:30', businessDate: '2026-07-13', peaCost: 220, owner: '李运营', reviewer: '王财务',
-    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布', crossValidation: '通过',
+    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '10:30 执行 ROI 拆解任务；10:31 生成报告。',
   },
   {
     id: 'pr-8', taskId: '20260714PROFIT001', taskType: 'other', source: '指令', platform: '唯品会', store: '品牌集合店',
     taskDate: '2026-07-14 14:00', businessDate: '2026-07-13', peaCost: 260, owner: '王财务', reviewer: '张管理员',
-    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布', crossValidation: '已修正',
+    resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '14:00 执行利润归因分析；14:01 生成报告并修正。',
   },
 ]
@@ -411,7 +409,6 @@ export default function AdminPage() {
                   <th>结果预览</th>
                   <th>任务结果</th>
                   <th>日报状态</th>
-                  <th>交叉验证</th>
                   <th>任务日志</th>
                 </tr>
               </thead>
@@ -430,7 +427,6 @@ export default function AdminPage() {
                     <td>{row.resultPreview}</td>
                     <td><span className={`data-pill ${row.taskResult === '完成' ? 'normal' : 'danger'}`}>{row.taskResult}</span></td>
                     <td><span className={`data-pill ${row.reportStatus === '已发布' ? 'normal' : 'warning'}`}>{row.reportStatus}</span></td>
-                    <td><span className={`data-pill ${row.crossValidation === '通过' ? 'good' : row.crossValidation === '已修正' ? 'normal' : 'danger'}`}>{row.crossValidation}</span></td>
                     <td><button className="log-link" type="button" onClick={() => setLogRecord(row)}><ScrollText aria-hidden="true" />查看日志</button></td>
                   </tr>
                 ))}

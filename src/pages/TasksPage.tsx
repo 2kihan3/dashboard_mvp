@@ -14,10 +14,9 @@ import {
   Upload,
 } from 'lucide-react'
 import { type PlatformName, type ReportRow, reportDataWithHaoyiku as reportData } from '../data/dailyReport'
-import { formatPrecise, statusClass } from '../lib/metrics'
+import { formatPrecise } from '../lib/metrics'
 
 type DailyReportStatus = '待发布' | '已发布' | '未发布'
-type CrossValidationStatus = '通过' | '未通过' | '已修正'
 type TaskSource = '定时任务' | '指令' | '人工上传文件'
 type TaskResult = '完成' | '失败'
 type DataTab = 'tasks' | 'dailyData'
@@ -37,7 +36,6 @@ interface DailyTaskRecord {
   resultPreview: string
   taskResult: TaskResult
   reportStatus: DailyReportStatus
-  crossValidation: CrossValidationStatus
   taskLog: string
   isUnbound: boolean
   metrics: { gmv: number; platformFee: number; managementFee: number }
@@ -84,7 +82,7 @@ interface DailyDataField {
   valueType?: 'amount' | 'ratio'
 }
 
-const taskColumns = ['任务 ID', '任务来源', '平台', '店铺', '任务日期', '业务日期', '豌豆消耗', '归属人员', '审核人', '结果预览', '任务结果', '日报状态', '交叉验证', '任务日志', '操作项']
+const taskColumns = ['任务 ID', '任务来源', '平台', '店铺', '任务日期', '业务日期', '豌豆消耗', '归属人员', '审核人', '结果预览', '任务结果', '日报状态', '任务日志', '操作项']
 const dailyDataFieldsByPlatform: Record<LedgerPlatform, DailyDataField[]> = {
   快手: [
     { key: 'gmv', label: '平台成交GMV' }, { key: 'actualRevenue', label: '实发收入' }, { key: 'refundAmount', label: '退货金额' },
@@ -135,7 +133,6 @@ const taskRows: DailyTaskRecord[] = [
     resultPreview: '任务完成',
     taskResult: '完成',
     reportStatus: '待发布',
-    crossValidation: '通过',
     taskLog: '08:05 拉取快手日报；08:06 完成字段校验；08:05:14 任务结束。',
     isUnbound: false,
     metrics: { gmv: 12722.86, platformFee: 1658.79, managementFee: 116.76 },
@@ -155,7 +152,6 @@ const taskRows: DailyTaskRecord[] = [
     resultPreview: '任务完成',
     taskResult: '完成',
     reportStatus: '待发布',
-    crossValidation: '未通过',
     taskLog: '08:11 拉取爱库存费用数据；品牌推广费为空，等待人工复核。',
     isUnbound: false,
     metrics: { gmv: 5519.9, platformFee: 573.06, managementFee: 0 },
@@ -175,7 +171,6 @@ const taskRows: DailyTaskRecord[] = [
     resultPreview: '任务完成',
     taskResult: '完成',
     reportStatus: '已发布',
-    crossValidation: '已修正',
     taskLog: '08:18 接收补数指令；08:19 完成唯品会字段复核并发布。',
     isUnbound: false,
     metrics: { gmv: 57911.59, platformFee: 1501.65, managementFee: 0 },
@@ -195,7 +190,6 @@ const taskRows: DailyTaskRecord[] = [
     resultPreview: '--',
     taskResult: '失败',
     reportStatus: '未发布',
-    crossValidation: '未通过',
     taskLog: '08:24 调用抖店任务失败：授权令牌失效。',
     isUnbound: false,
     metrics: { gmv: 0, platformFee: 0, managementFee: 0 },
@@ -215,7 +209,6 @@ const taskRows: DailyTaskRecord[] = [
     resultPreview: '任务完成',
     taskResult: '完成',
     reportStatus: '待发布',
-    crossValidation: '通过',
     taskLog: '08:30 拉取好衣库日报；08:31 完成字段校验；08:30:15 任务结束。',
     isUnbound: false,
     metrics: { gmv: 13680.5, platformFee: 1820.3, managementFee: 0 },
@@ -382,7 +375,7 @@ function formatDailyDataValue(value: number | null, valueType: 'amount' | 'ratio
 
 function TaskPreviewDialog({ task, onClose, onEdit }: { task: DailyTaskRecord; onClose: () => void; onEdit: (task: DailyTaskRecord) => void }) {
   const groups = taskPreviewGroups(task)
-  const canEdit = task.taskResult !== '失败' && task.crossValidation === '未通过' && !task.isUnbound
+  const canEdit = task.taskResult === '完成' && task.reportStatus !== '已发布' && !task.isUnbound
   return (
     <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="ledger-dialog task-preview-dialog">
@@ -507,7 +500,7 @@ export default function TasksPage() {
 
   function publishTask(taskId: string) {
     const task = tasks.find((item) => item.taskId === taskId)
-    if (!task || task.taskResult === '失败' || task.crossValidation === '未通过' || task.isUnbound) return
+    if (!task || task.taskResult === '失败' || task.isUnbound) return
     setTasks((rows) => rows.map((row) => row.taskId === taskId ? { ...row, reportStatus: '已发布' } : row))
     const publishedMetrics = metricsForPublish(task)
     setDailyData((rows) => [
@@ -518,6 +511,7 @@ export default function TasksPage() {
   }
 
   function openReview(task: DailyTaskRecord) {
+    if (task.taskResult !== '完成' || task.reportStatus === '已发布' || task.isUnbound) return
     setReviewingTaskId(task.taskId)
     setReviewNote(task.reviewNote ?? '')
     setReviewFields({ ...taskFieldValues(task), ...task.reviewedFields })
@@ -533,7 +527,7 @@ export default function TasksPage() {
     setTasks((rows) =>
       rows.map((row) =>
         row.taskId === reviewingTaskId
-          ? { ...row, crossValidation: '已修正', reviewedFields: modifiedFields, reviewNote: reviewNote.trim() || '人工复核完成' }
+          ? { ...row, reviewedFields: modifiedFields, reviewNote: reviewNote.trim() || '人工复核完成' }
           : row,
       ),
     )
@@ -575,8 +569,7 @@ export default function TasksPage() {
       resultPreview: '任务完成',
       taskResult: '完成',
       reportStatus: '待发布',
-      crossValidation: '未通过',
-      taskLog: '人工上传文件完成，等待交叉验证。',
+      taskLog: '人工上传文件完成，等待发布。',
       isUnbound: false,
       metrics: { gmv: 0, platformFee: 0, managementFee: 0 },
       peaCost: 0,
@@ -589,7 +582,7 @@ export default function TasksPage() {
     setSelectedFile(null)
     setUploadStoreName('')
     setIsUploadDialogOpen(false)
-    setLedgerNotice('人工上传任务已创建，待完成交叉验证')
+    setLedgerNotice('人工上传任务已创建，待发布')
   }
 
   return (
@@ -756,14 +749,13 @@ export default function TasksPage() {
                       <td>{row.taskResult === '完成' ? <button className="preview-link" type="button" onClick={() => setPreviewTask(row)}><Eye aria-hidden="true" />查看</button> : '--'}</td>
                       <td><span className={`data-pill ${row.taskResult === '完成' ? 'normal' : 'danger'}`}>{row.taskResult}</span></td>
                       <td><span className={`data-pill ${row.reportStatus === '已发布' ? 'normal' : 'warning'}`}>{row.reportStatus}</span></td>
-                      <td><span className={`data-pill ${statusClass(row.crossValidation)}`}>{row.crossValidation}</span></td>
                       <td><button className="log-link" type="button" onClick={() => setLogTask(row)}><ScrollText aria-hidden="true" />查看日志</button></td>
                       <td>
                         <div className="row-actions">
-                          <button className="table-action publish" type="button" disabled={row.taskResult === '失败' || row.crossValidation === '未通过' || row.reportStatus === '已发布' || row.isUnbound} onClick={() => publishTask(row.taskId)}>
+                          <button className="table-action publish" type="button" disabled={row.taskResult === '失败' || row.reportStatus === '已发布' || row.isUnbound} onClick={() => publishTask(row.taskId)}>
                             <CheckCircle2 aria-hidden="true" />发布
                           </button>
-                          <button className="table-action" type="button" disabled={row.taskResult === '失败' || row.crossValidation !== '未通过' || row.isUnbound} onClick={() => openReview(row)}>
+                          <button className="table-action" type="button" disabled={row.taskResult !== '完成' || row.reportStatus === '已发布' || row.isUnbound} onClick={() => openReview(row)}>
                             <Pencil aria-hidden="true" />修改
                           </button>
                           <button className="table-action" type="button" disabled={row.isUnbound} onClick={() => openRetry(row)}>
@@ -887,7 +879,7 @@ export default function TasksPage() {
               </div>
               <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setIsReviewDialogOpen(false)}>×</button>
             </header>
-            <p>完成复核后，交叉验证结果会更新为“已修正”，任务可以继续发布。</p>
+            <p>完成复核后会保留原始结果，并在发布时写入修正后的数据。</p>
             {reviewingTask ? <div className="review-field-groups">{taskPreviewGroups({ ...reviewingTask, reviewedFields: undefined }).map((group) => (
               <section key={group.category} className="review-field-group">
                 <h4>{group.category}</h4>

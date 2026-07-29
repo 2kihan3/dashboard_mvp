@@ -57,7 +57,7 @@ const roles: Role[] = [
 
 const notifications: NotificationItem[] = [
   { id: 'n1', tone: 'alert', type: 'exception', title: '快手 7/13 推广费 ROI 异常', body: '「品牌专区-7月」ROI 1.41，低于阈值 1.8，建议复核', time: '5 分钟前', unread: true },
-  { id: 'n2', tone: 'normal', type: 'task', title: '唯品会日报待复核', body: '7/13 唯品会交叉验证未通过，等待人工复核', time: '32 分钟前', unread: true },
+  { id: 'n2', tone: 'normal', type: 'task', title: '唯品会日报待复核', body: '7/13 唯品会日报存在待复核数据，等待人工处理', time: '32 分钟前', unread: true },
   { id: 'n3', tone: 'success', type: 'report', title: '爱库存日报已发布', body: '7/13 爱库存 2 家店铺日报已写入数据台账', time: '1 小时前', unread: false },
   { id: 'n4', tone: 'alert', type: 'exception', title: '抖店任务失败', body: '授权令牌失效，请前往 skill 市场重新授权', time: '2 小时前', unread: false },
   { id: 'n5', tone: 'normal', type: 'task', title: '好衣库任务已完成', body: '7/13 好衣库日报已生成，待发布', time: '3 小时前', unread: false },

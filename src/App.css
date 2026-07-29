@@ -529,6 +529,8 @@
 .dashboard-tabs button.active { color: var(--aqua); border-bottom-color: var(--aqua); }
 .dashboard-tabs button svg { width: 14px; }
 .global-dashboard-head { border-color: rgba(95, 183, 230, .28); }
+.global-dashboard-title > div { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.global-dashboard-title__notice { padding: 4px 8px; border: 1px solid rgba(233, 174, 100, .62); border-radius: 4px; background: rgba(233, 174, 100, .12); color: #f3c47d; font-size: 12px; font-weight: 700; line-height: 1.45; }
 .global-dashboard-filter { justify-content: space-between; }
 .global-dashboard-filter__hint { color: var(--faint); font-family: "DM Mono", monospace; font-size: 11px; }
 .global-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -621,6 +623,25 @@
 .metric-delta.negative { color: var(--amber); }
 .metric-summary-card footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--faint); font-size: 11px; font-family: "DM Mono", monospace; }
 
+.daily-gmv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--line);
+}
+.daily-gmv-card {
+  min-width: 0;
+  padding: 11px 13px;
+  background: rgba(10, 19, 17, .88);
+}
+.daily-gmv-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.daily-gmv-card h3 { overflow: hidden; color: var(--mist); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.daily-gmv-card > strong { display: block; margin-top: 6px; color: #ecf4f0; font-family: "DM Mono", monospace; font-size: 20px; letter-spacing: 0; }
+.daily-gmv-card footer { margin-top: 5px; color: var(--faint); font-size: 10px; font-family: "DM Mono", monospace; }
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -709,16 +730,6 @@
   border-bottom: 1px solid var(--line);
 }
 .chart-shell__header h3 { color: #ecf4f0; }
-.chart-shell__icon {
-  display: grid;
-  width: 32px; height: 32px;
-  place-items: center;
-  border-radius: 8px;
-  border: 1px solid rgba(121, 219, 196, .24);
-  background: rgba(121, 219, 196, .08);
-  color: var(--aqua);
-}
-.chart-shell__icon svg { width: 16px; }
 .chart-shell__body { padding: 14px 18px 18px; flex: 1; }
 
 .chart-summary-value {

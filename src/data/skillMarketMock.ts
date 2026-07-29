@@ -17,7 +17,7 @@ export const skillCards: SkillCard[] = [
     id: 'sk-daily-report',
     name: '多平台日报生成',
     category: '日报',
-    description: '按平台与店铺拉取前一日数据，按经营事实表口径组装日报，自动交叉验证后产出可发布结果。',
+    description: '按平台与店铺拉取前一日数据，按经营事实表口径组装日报并产出可发布结果。',
     inputs: ['平台', '店铺', '业务日期'],
     outputs: ['日报 JSON', '字段映射核对表', '差异提示'],
     invocations: 1284,

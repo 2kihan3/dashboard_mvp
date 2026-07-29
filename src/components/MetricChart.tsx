@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { BarChart3, LineChart as LineChartIcon } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { type PlatformName, type ReportRow, reportDataWithHaoyiku as reportData } from '../data/dailyReport'
 import {
@@ -25,12 +24,10 @@ import {
 export function ChartShell({
   title,
   subtitle,
-  icon,
   children,
 }: {
   title: string
   subtitle: string
-  icon: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -40,7 +37,6 @@ export function ChartShell({
           <span className="eyebrow">{subtitle}</span>
           <h3>{title}</h3>
         </div>
-        <span className="chart-shell__icon">{icon}</span>
       </header>
       <div className="chart-shell__body">{children}</div>
     </section>
@@ -106,7 +102,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
         return point
       })
       return (
-        <ChartShell title="GMV" subtitle="总计 · 所有平台日GMV" icon={<LineChartIcon aria-hidden="true" />}>
+        <ChartShell title="GMV" subtitle="总计 · 所有平台日GMV">
           <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
           <ResponsiveContainer width="100%" height={indicator ? 220 : 280}>
             <LineChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{reportData.map((report, index) => <Line key={report.platform} type="monotone" dataKey={report.platform} stroke={['#79dbc4', '#5fb7e6', '#34d6b3', '#e9ae64'][index]} strokeWidth={2.5} dot={{ r: 3 }} />)}</LineChart>
@@ -122,7 +118,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
         return point
       })
       return (
-        <ChartShell title="平台费用合计" subtitle="总计 · 每个平台一根费用堆叠柱" icon={<BarChart3 aria-hidden="true" />}>
+        <ChartShell title="平台费用合计" subtitle="总计 · 每个平台一根费用堆叠柱">
           <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
           <ResponsiveContainer width="100%" height={indicator ? 220 : 280}>
             <BarChart data={data} stackOffset="none">
@@ -143,7 +139,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
       return point
     })
     return (
-      <ChartShell title="管理费用合计" subtitle="总计 · 各平台管理费用叠加" icon={<BarChart3 aria-hidden="true" />}>
+      <ChartShell title="管理费用合计" subtitle="总计 · 各平台管理费用叠加">
         <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
         <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{reportData.map((report, index) => <Bar key={report.platform} dataKey={report.platform} stackId="mgmt" fill={['#9aa8a0', '#b9c6c0', '#0f766e', '#e9ae64'][index]} />)}</BarChart></ResponsiveContainer>
       </ChartShell>
@@ -160,7 +156,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
       return point
     })
     return (
-      <ChartShell title="GMV" subtitle={`${platform} · 按店铺`} icon={<LineChartIcon aria-hidden="true" />}>
+      <ChartShell title="GMV" subtitle={`${platform} · 按店铺`}>
         <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
         <div className="chart-tabs"><button className={!detailView ? 'selected' : ''} type="button" onClick={() => setDetailView(false)}>期间合计</button>{period !== 'day' ? <button className={detailView ? 'selected' : ''} type="button" onClick={() => setDetailView(true)}>{period === 'week' ? '7日走势' : period === 'month' ? '4周细节' : '12月细节'}</button> : null}</div>
         {!detailView ? <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={storeData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="name" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Bar dataKey="value" fill="#79dbc4" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer> : <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><LineChart data={combinedDailyData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" type="category" allowDuplicatedCategory={false} tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{dailyData.map((store, index) => <Line key={store.name} type="monotone" dataKey={store.name} name={store.name} stroke={['#79dbc4', '#5fb7e6', '#e9ae64'][index]} strokeWidth={2.5} />)}</LineChart></ResponsiveContainer>}
@@ -172,7 +168,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
     const pieData = fields.map((field) => ({ name: field, value: fieldSummaryValue(platform, field, period) })).filter((item) => item.value !== 0)
     const data = feeBuckets(platform, period)
     return (
-      <ChartShell title="平台费用合计" subtitle={`${platform} · 具体费用组成`} icon={<BarChart3 aria-hidden="true" />}>
+      <ChartShell title="平台费用合计" subtitle={`${platform} · 具体费用组成`}>
         <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
         <div className="chart-tabs"><button className={!detailView ? 'selected' : ''} type="button" onClick={() => setDetailView(false)}>费用组成</button>{period !== 'day' ? <button className={detailView ? 'selected' : ''} type="button" onClick={() => setDetailView(true)}>{period === 'week' ? '7日费用' : period === 'month' ? '4周费用' : '12月费用'}</button> : null}</div>
         {!detailView ? <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><PieChart><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} stroke="rgba(213,234,225,.16)">{pieData.map((item, index) => <Cell key={item.name} fill={['#5fb7e6', '#79dbc4', '#34d6b3', '#e9ae64', '#b794f6', '#f87171'][index % 6]} />)}</Pie></PieChart></ResponsiveContainer> : <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{fields.map((field, index) => <Bar key={field} dataKey={field} stackId="fees" fill={['#5fb7e6', '#79dbc4', '#34d6b3', '#e9ae64', '#b794f6', '#f87171'][index % 6]} />)}</BarChart></ResponsiveContainer>}
@@ -182,7 +178,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
   if (spec.field === '管理费用合计') {
     if (period === 'day') {
       return (
-        <ChartShell title="管理费用合计" subtitle={`${platform} · 期间费用`} icon={<BarChart3 aria-hidden="true" />}>
+        <ChartShell title="管理费用合计" subtitle={`${platform} · 期间费用`}>
           <div className="daily-metric normal"><span>当日数值</span><strong>{formatPrecise(totalValue)}</strong><p>管理费用合计</p></div>
         </ChartShell>
       )
@@ -194,7 +190,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
       return point
     })
     return (
-      <ChartShell title="管理费用合计" subtitle={`${platform} · 各店铺叠加`} icon={<BarChart3 aria-hidden="true" />}>
+      <ChartShell title="管理费用合计" subtitle={`${platform} · 各店铺叠加`}>
         <div className="chart-summary-value">{formatPrecise(totalValue)}</div>
         <ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={combinedData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} />{dailyData.map((store, index) => <Bar key={store.name} dataKey={store.name} stackId="mgmt" fill={['#79dbc4', '#5fb7e6', '#e9ae64'][index % 3]} />)}</BarChart></ResponsiveContainer>
       </ChartShell>
@@ -203,7 +199,7 @@ export function MetricChart({ platform, period, spec, indicator = false }: { pla
   void storeShares
   void color
   const data = platformFieldBuckets(platform as DetailPlatform, spec.field, period)
-  return <ChartShell title={spec.chartTitle} subtitle={`${platform} · ${spec.field}`} icon={<BarChart3 aria-hidden="true" />}><div className="chart-summary-value">{formatPrecise(totalValue)}</div><ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Bar dataKey="value" fill={color} radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></ChartShell>
+  return <ChartShell title={spec.chartTitle} subtitle={`${platform} · ${spec.field}`}><div className="chart-summary-value">{formatPrecise(totalValue)}</div><ResponsiveContainer width="100%" height={indicator ? 220 : 280}><BarChart data={data}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} stroke="#8da39b" fontSize={11} /><YAxis tickFormatter={formatAmount} tickLine={false} axisLine={false} width={56} stroke="#8da39b" fontSize={11} /><Tooltip contentStyle={{ background: '#101a18', border: '1px solid rgba(121,219,196,.24)', borderRadius: 6, color: '#d7e8e1', fontSize: 12 }} labelStyle={{ color: '#79dbc4' }} formatter={tooltipAmount} /><Bar dataKey="value" fill={color} radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></ChartShell>
 }
 
 // 仅用于消除 ReportRow 类型未使用警告（保留以便未来扩展）
