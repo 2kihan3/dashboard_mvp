@@ -2,8 +2,6 @@ import { useState } from 'react'
 import {
   ArrowLeft,
   CheckCircle2,
-  Eye,
-  EyeOff,
   KeyRound,
   Link2,
   Pencil,
@@ -12,17 +10,15 @@ import {
   ScrollText,
   Sparkles,
   Store,
-  Trash2,
   Unlink,
   Users,
   X,
-  Zap,
 } from 'lucide-react'
 
 // ===================== 类型定义 =====================
 
-type AdminTab = 'llm' | 'pea' | 'team'
-type LlmTab = 'api' | 'binding'
+export type AdminTab = 'team' | 'tasks' | 'platforms'
+type AdminTaskTab = 'pea'
 type PeaTab = 'all' | 'daily' | 'other'
 type TaskSource = '定时任务' | '指令' | '人工上传文件'
 type TaskResult = '完成' | '失败'
@@ -45,38 +41,25 @@ interface TeamPlatformAccount {
   status: 'connected' | 'expired'
 }
 
-interface LlmApiConfig {
-  id: string
-  provider: string
-  baseUrl: string
-  modelName: string
-  apiKey: string
-  maxTokens: number
-  temperature: number
-  status: 'enabled' | 'disabled'
-  isDefault: boolean
-}
-
-interface ComponentBinding {
+interface SupportedPlatform {
   id: string
   name: string
-  workflow: string
-  inputs: string[] // 从 ['时间', '平台', '店铺'] 中多选
-  status: 'active' | 'inactive'
+  status: '已启用' | '已停用'
+  updatedAt: string
 }
-
-const inputOptions = ['时间', '平台', '店铺']
 
 interface PeaRecord {
   id: string
   taskId: string
   taskType: 'daily' | 'other' // 仅用于 tab 筛选，不作为列展示
+  featureType: string // 功能类型
   source: TaskSource // 任务来源
   platform: string
   store: string
   taskDate: string
   businessDate: string
   peaCost: number
+  team: string // 所属团队
   owner: string // 归属人员
   reviewer: string // 审核人
   resultPreview: string // 结果预览
@@ -87,90 +70,52 @@ interface PeaRecord {
 
 // ===================== Mock 数据 =====================
 
-const llmApiConfigs: LlmApiConfig[] = [
-  { id: 'api-1', provider: 'OpenAI', baseUrl: 'https://api.openai.com/v1', modelName: 'gpt-4o', apiKey: 'sk-proj-abc123xyz789', maxTokens: 4096, temperature: 0.7, status: 'enabled', isDefault: true },
-  { id: 'api-2', provider: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1', modelName: 'claude-sonnet-4-20250514', apiKey: 'sk-ant-api03-def456uvw012', maxTokens: 8192, temperature: 0.5, status: 'enabled', isDefault: false },
-  { id: 'api-3', provider: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', modelName: 'deepseek-chat', apiKey: 'sk-ds-ghi789rst345', maxTokens: 4096, temperature: 0.3, status: 'enabled', isDefault: false },
-  { id: 'api-4', provider: '通义千问', baseUrl: 'https://dashscope.aliyuncs.com/api/v1', modelName: 'qwen-max', apiKey: 'sk-qwen-jkl012mno678', maxTokens: 6144, temperature: 0.6, status: 'disabled', isDefault: false },
-]
-
-const componentBindings: ComponentBinding[] = [
-  {
-    id: 'bind-1',
-    name: '新建任务',
-    workflow: '多平台日报生成',
-    inputs: ['时间', '平台', '店铺'],
-    status: 'active',
-  },
-  {
-    id: 'bind-2',
-    name: '立即使用',
-    workflow: '平台费用差异排查',
-    inputs: ['时间', '平台'],
-    status: 'active',
-  },
-  {
-    id: 'bind-3',
-    name: '发送',
-    workflow: '自由问答',
-    inputs: ['时间', '平台', '店铺'],
-    status: 'active',
-  },
-  {
-    id: 'bind-4',
-    name: '利润分析',
-    workflow: '利润归因分析',
-    inputs: ['平台', '店铺'],
-    status: 'inactive',
-  },
-]
-
 const peaRecords: PeaRecord[] = [
   {
-    id: 'pr-1', taskId: '20260714KSGFGJ001', taskType: 'daily', source: '定时任务', platform: '快手', store: '官方旗舰店',
-    taskDate: '2026-07-14 08:05', businessDate: '2026-07-13', peaCost: 320, owner: '李运营', reviewer: '张管理员',
+    id: 'pr-1', taskId: '20260714KSGFGJ001', taskType: 'daily', featureType: '日报生成', source: '定时任务', platform: '快手', store: '官方旗舰店',
+    taskDate: '2026-07-14 08:05', businessDate: '2026-07-13', peaCost: 320, team: '澄明电商运营团队', owner: '李运营', reviewer: '张管理员',
     resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布',
     taskLog: '08:05 拉取快手日报；08:06 完成字段校验；08:05:14 任务结束。',
   },
   {
-    id: 'pr-2', taskId: '20260714AKJBSP001', taskType: 'daily', source: '定时任务', platform: '爱库存', store: '京倍店铺',
-    taskDate: '2026-07-14 08:11', businessDate: '2026-07-13', peaCost: 280, owner: '陈分析', reviewer: '',
+    id: 'pr-2', taskId: '20260714AKJBSP001', taskType: 'daily', featureType: '日报生成', source: '定时任务', platform: '爱库存', store: '京倍店铺',
+    taskDate: '2026-07-14 08:11', businessDate: '2026-07-13', peaCost: 280, team: '京倍数字营销团队', owner: '陈分析', reviewer: '',
     resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布',
     taskLog: '08:11 拉取爱库存费用数据；品牌推广费为空，等待人工复核。',
   },
   {
-    id: 'pr-3', taskId: '20260714WPPPJH001', taskType: 'daily', source: '指令', platform: '唯品会', store: '品牌集合店',
-    taskDate: '2026-07-14 08:18', businessDate: '2026-07-13', peaCost: 450, owner: '王财务', reviewer: '张管理员',
+    id: 'pr-3', taskId: '20260714WPPPJH001', taskType: 'daily', featureType: '日报生成', source: '指令', platform: '唯品会', store: '品牌集合店',
+    taskDate: '2026-07-14 08:18', businessDate: '2026-07-13', peaCost: 450, team: '澄明电商运营团队', owner: '王财务', reviewer: '张管理员',
     resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '08:18 接收补数指令；08:19 完成唯品会字段复核并发布。',
   },
   {
-    id: 'pr-4', taskId: '20260714DYDYSP001', taskType: 'daily', source: '定时任务', platform: '抖店', store: '抖店旗舰店',
-    taskDate: '2026-07-14 08:24', businessDate: '2026-07-13', peaCost: 80, owner: '李运营', reviewer: '',
+    id: 'pr-4', taskId: '20260714DYDYSP001', taskType: 'daily', featureType: '日报生成', source: '定时任务', platform: '抖店', store: '抖店旗舰店',
+    taskDate: '2026-07-14 08:24', businessDate: '2026-07-13', peaCost: 80, team: '京倍数字营销团队', owner: '李运营', reviewer: '',
     resultPreview: '--', taskResult: '失败', reportStatus: '未发布',
     taskLog: '08:24 调用抖店任务失败：授权令牌失效。',
   },
   {
-    id: 'pr-5', taskId: '20260714HYKSP001', taskType: 'daily', source: '定时任务', platform: '好衣库', store: '好衣库店铺',
-    taskDate: '2026-07-14 08:30', businessDate: '2026-07-13', peaCost: 360, owner: '张管理员', reviewer: '王财务',
+    id: 'pr-5', taskId: '20260714HYKSP001', taskType: 'daily', featureType: '日报生成', source: '定时任务', platform: '好衣库', store: '好衣库店铺',
+    taskDate: '2026-07-14 08:30', businessDate: '2026-07-13', peaCost: 360, team: '澄明电商运营团队', owner: '张管理员', reviewer: '王财务',
     resultPreview: '任务完成', taskResult: '完成', reportStatus: '待发布',
     taskLog: '08:30 拉取好衣库日报；08:31 完成字段校验；08:30:15 任务结束。',
   },
   {
-    id: 'pr-6', taskId: '20260714FEE001', taskType: 'other', source: '指令', platform: '快手', store: '官方旗舰店',
-    taskDate: '2026-07-14 09:15', businessDate: '2026-07-13', peaCost: 180, owner: '陈分析', reviewer: '张管理员',
+    id: 'pr-6', taskId: '20260714FEE001', taskType: 'other', featureType: '费用差异排查', source: '指令', platform: '快手', store: '官方旗舰店',
+    taskDate: '2026-07-14 09:15', businessDate: '2026-07-13', peaCost: 180, team: '澄明电商运营团队', owner: '陈分析', reviewer: '张管理员',
     resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '09:15 执行费用差异排查任务；09:16 生成报告。',
   },
   {
-    id: 'pr-7', taskId: '20260714ROI001', taskType: 'other', source: '指令', platform: '快手', store: '官方旗舰店',
-    taskDate: '2026-07-14 10:30', businessDate: '2026-07-13', peaCost: 220, owner: '李运营', reviewer: '王财务',
+    id: 'pr-7', taskId: '20260714ROI001', taskType: 'other', featureType: 'ROI 拆解', source: '指令', platform: '快手', store: '官方旗舰店',
+    taskDate: '2026-07-14 10:30', businessDate: '2026-07-13', peaCost: 220, team: '澄明电商运营团队', owner: '李运营', reviewer: '王财务',
     resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '10:30 执行 ROI 拆解任务；10:31 生成报告。',
   },
   {
-    id: 'pr-8', taskId: '20260714PROFIT001', taskType: 'other', source: '指令', platform: '唯品会', store: '品牌集合店',
-    taskDate: '2026-07-14 14:00', businessDate: '2026-07-13', peaCost: 260, owner: '王财务', reviewer: '张管理员',
+    id: 'pr-8', taskId: '20260714PROFIT001', taskType: 'other', featureType: '利润归因分析', source: '指令', platform: '唯品会', store: '品牌集合店',
+    taskDate: '2026-07-14 14:00', businessDate: '2026-07-13', peaCost: 260, team: '澄明电商运营团队', owner: '王财务', reviewer: '张管理员',
     resultPreview: '任务完成', taskResult: '完成', reportStatus: '已发布',
     taskLog: '14:00 执行利润归因分析；14:01 生成报告并修正。',
   },
@@ -205,19 +150,151 @@ const initialTeamAccounts: Record<string, TeamPlatformAccount[]> = {
   ],
 }
 
+type TeamDetailTab = 'members' | 'groups' | 'platforms' | 'dashboards' | 'permissions' | 'logs'
+type PermissionTab = 'organization' | 'business'
+
+interface TeamMemberRecord {
+  id: string
+  avatar: string
+  name: string
+  email: string
+  phone: string
+  orgInfo: string
+  organizationRole: '商户管理员' | '小组长' | '普通员工'
+  group: string
+  businessRole: '老板' | '财务' | '运营' | '其他'
+  status: '正常' | '已禁用'
+  peaBalance: number
+  modules: string[]
+}
+
+interface TeamGroupRecord {
+  id: string
+  name: string
+  leader: string
+  balance: number
+  status: '正常' | '已停用'
+  createdAt: string
+  stores: string[]
+}
+
+interface OrganizationPermissionRecord {
+  role: '小组长' | '普通员工'
+  pages: string[]
+}
+
+const teamModuleOptions = ['chatbot', '数据看板', '数据中心', 'skills市场', '数据溯源']
+const teamOperationPermissions = ['日报任务记录：发布', '日报任务记录：修改', '日报任务记录：重试', '日报任务记录：人工上传', '日报任务记录：作废', '日报数据：修改']
+const teamDataPermissions = ['业务日期', '平台名称', '店铺名称', 'GMV', '销售收入', '平台费用', '净利润']
+
+function TeamDetailPage({ team, onBack, supportedPlatforms }: { team: Team; onBack: () => void; supportedPlatforms: string[] }) {
+  const [tab, setTab] = useState<TeamDetailTab>('members')
+  const [permissionTab, setPermissionTab] = useState<PermissionTab>('organization')
+  const [organizationPermissions, setOrganizationPermissions] = useState<OrganizationPermissionRecord[]>([
+    { role: '小组长', pages: teamModuleOptions },
+    { role: '普通员工', pages: ['chatbot', '数据看板', '数据中心'] },
+  ])
+  const [editingOrganizationPermission, setEditingOrganizationPermission] = useState<OrganizationPermissionRecord | null>(null)
+  const [members, setMembers] = useState<TeamMemberRecord[]>([
+    { id: 'member-1', avatar: '李', name: '李运营', email: 'li.ops@example.com', phone: '138****1122', orgInfo: '澄明电商 / 运营部 / 运营专员', organizationRole: '小组长', group: '运营组', businessRole: '运营', status: '正常', peaBalance: 1260, modules: ['chatbot', '数据看板', '数据中心'] },
+    { id: 'member-2', avatar: '王', name: '王财务', email: 'wang.finance@example.com', phone: '139****2233', orgInfo: '澄明电商 / 财务部 / 财务主管', organizationRole: '小组长', group: '财务组', businessRole: '财务', status: '正常', peaBalance: 980, modules: ['数据看板', '数据中心', '数据溯源'] },
+    { id: 'member-3', avatar: '陈', name: '陈分析', email: 'chen.data@example.com', phone: '136****3308', orgInfo: '澄明电商 / 数据部 / 数据分析师', organizationRole: '普通员工', group: '运营组', businessRole: '运营', status: '正常', peaBalance: 640, modules: ['数据看板', '数据中心'] },
+  ])
+  const [groups, setGroups] = useState<TeamGroupRecord[]>([
+    { id: 'group-1', name: '运营组', leader: '李运营', balance: 3200, status: '正常', createdAt: '2026-05-12', stores: ['官方旗舰店', '品牌集合店'] },
+    { id: 'group-2', name: '财务组', leader: '王财务', balance: 1800, status: '正常', createdAt: '2026-05-20', stores: ['官方旗舰店', '京倍店铺'] },
+  ])
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
+  const [editingMember, setEditingMember] = useState<TeamMemberRecord | null>(null)
+  const [permissionMember, setPermissionMember] = useState<TeamMemberRecord | null>(null)
+  const [editingGroup, setEditingGroup] = useState<TeamGroupRecord | null>(null)
+  const [adjusting, setAdjusting] = useState<{ type: 'member' | 'group'; id: string; direction: 'add' | 'subtract'; amount: number } | null>(null)
+  const [businessRoles, setBusinessRoles] = useState(['老板', '财务', '运营', '其他'])
+  const [editingBusinessRole, setEditingBusinessRole] = useState<string | null>(null)
+  const [teamDashboards, setTeamDashboards] = useState([
+    { id: 'team-dashboard-1', name: '经营日报总览', group: '运营组', status: '已发布' },
+    { id: 'team-dashboard-2', name: '费用与利润分析', group: '财务组', status: '草稿' },
+  ])
+  const availableStores = ['官方旗舰店', '品牌集合店', '京倍店铺', '万顷店铺']
+  const [teamPlatformAccounts, setTeamPlatformAccounts] = useState<TeamPlatformAccount[]>(initialTeamAccounts[team.id] ?? [])
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
+  const [addingPlatform, setAddingPlatform] = useState(false)
+  const [newPlatformName, setNewPlatformName] = useState('')
+  const [bindingStore, setBindingStore] = useState(false)
+  const [storeBindMode, setStoreBindMode] = useState<'scan' | 'password'>('scan')
+  const [storeName, setStoreName] = useState('')
+  const [storeAccount, setStoreAccount] = useState('')
+  const [storePassword, setStorePassword] = useState('')
+  const teamPlatforms = Array.from(new Set(teamPlatformAccounts.map((account) => account.platform)))
+  const selectedPlatformAccounts = teamPlatformAccounts.filter((account) => account.platform === selectedPlatform)
+  const groupLeader = permissionMember?.group ? members.find((member) => member.group === permissionMember.group && member.organizationRole === '小组长')?.name ?? '暂无组长' : '—'
+
+  const saveMember = () => {
+    if (!editingMember || !editingMember.name.trim()) return
+    setMembers((rows) => editingMember.id ? rows.map((row) => row.id === editingMember.id ? editingMember : row) : [...rows, { ...editingMember, id: `member-${Date.now()}`, avatar: editingMember.name.trim().slice(0, 1) }])
+    setEditingMember(null)
+  }
+  const savePermission = () => {
+    if (!permissionMember) return
+    setMembers((rows) => rows.map((row) => row.id === permissionMember.id ? permissionMember : row))
+    setPermissionMember(null)
+  }
+  const saveGroup = () => {
+    if (!editingGroup || !editingGroup.name.trim()) return
+    setGroups((rows) => editingGroup.id ? rows.map((row) => row.id === editingGroup.id ? editingGroup : row) : [...rows, { ...editingGroup, id: `group-${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10) }])
+    setEditingGroup(null)
+  }
+
+  return <>
+    <article className="data-table-card">
+      <header><div><span className="eyebrow">team_console</span><h3>{team.name}</h3></div><button className="secondary-action" type="button" onClick={onBack}><ArrowLeft aria-hidden="true" />返回团队列表</button></header>
+      <div className="dialog-meta"><span>{team.desc}</span><span>创建时间：{team.createdAt}</span></div>
+    </article>
+    <div className="admin-sub-tabs"><button type="button" className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>成员管理</button><button type="button" className={tab === 'groups' ? 'active' : ''} onClick={() => setTab('groups')}>小组管理</button><button type="button" className={tab === 'platforms' ? 'active' : ''} onClick={() => setTab('platforms')}>平台管理</button><button type="button" className={tab === 'dashboards' ? 'active' : ''} onClick={() => setTab('dashboards')}>仪表盘管理</button><button type="button" className={tab === 'permissions' ? 'active' : ''} onClick={() => setTab('permissions')}>权限管理</button><button type="button" className={tab === 'logs' ? 'active' : ''} onClick={() => setTab('logs')}>操作日志</button></div>
+    {tab === 'members' ? <article className="data-table-card"><header><div><span className="eyebrow">team_members</span><h3>成员管理</h3></div><div className="table-header-actions"><button type="button" className="secondary-action" onClick={() => setEditingMember({ id: '', avatar: '', name: '', email: '', phone: '', orgInfo: '', organizationRole: '普通员工', group: '', businessRole: '其他', status: '正常', peaBalance: 0, modules: [] })}><Plus aria-hidden="true" />创建成员</button><button type="button" className="primary-action" onClick={() => setEditingMember({ id: '', avatar: '', name: '', email: '', phone: '', orgInfo: '', organizationRole: '普通员工', group: '', businessRole: '其他', status: '正常', peaBalance: 0, modules: [] })}><Plus aria-hidden="true" />邀请成员</button></div></header><div className="table-scroll"><table><thead><tr><th>成员</th><th>手机号</th><th>公司 / 部门 / 岗位</th><th>组织角色</th><th>业务角色</th><th>账号状态</th><th>豌豆余额</th><th>模块权限</th><th>操作项</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><div className="team-member-cell"><span>{member.avatar}</span><div><strong>{member.name}</strong><small>{member.email}</small></div></div></td><td>{member.phone}</td><td>{member.orgInfo}</td><td>{member.organizationRole}</td><td>{member.businessRole}</td><td><span className={`data-pill ${member.status === '正常' ? 'good' : 'warning'}`}>{member.status}</span></td><td>{member.peaBalance}</td><td>{member.modules.join('、') || '—'}</td><td><div className="row-actions"><button type="button" className="table-action" onClick={() => setEditingMember(member)}>编辑信息</button><button type="button" className="table-action" onClick={() => setAdjusting({ type: 'member', id: member.id, direction: 'add', amount: 0 })}>豌豆分配/回收</button><button type="button" className="table-action" onClick={() => setPermissionMember(member)}>权限管理</button><button type="button" className="table-action" onClick={() => setMembers((rows) => rows.map((row) => row.id === member.id ? { ...row, status: row.status === '正常' ? '已禁用' : '正常' } : row))}>{member.status === '正常' ? '禁用账号' : '启用账号'}</button><button type="button" className="table-action danger-action" onClick={() => setMembers((rows) => rows.filter((row) => row.id !== member.id))}>删除账号</button></div></td></tr>)}</tbody></table></div></article> : null}
+    {tab === 'groups' ? <article className="data-table-card"><header><div><span className="eyebrow">team_groups</span><h3>小组管理</h3></div><button type="button" className="primary-action" onClick={() => setEditingGroup({ id: '', name: '', leader: '', balance: 0, status: '正常', createdAt: '', stores: [] })}><Plus aria-hidden="true" />创建小组</button></header><div className="table-scroll"><table><thead><tr><th>小组</th><th>小组长</th><th>成员数</th><th>小组余额</th><th>状态</th><th>创建时间</th><th>关联店铺</th><th>操作</th></tr></thead><tbody>{groups.map((group) => <><tr key={group.id}><td><button type="button" className="preview-link" onClick={() => setExpandedGroupId(expandedGroupId === group.id ? null : group.id)}>{expandedGroupId === group.id ? '收起' : '展开'} {group.name}</button></td><td>{group.leader || '—'}</td><td>{members.filter((member) => member.group === group.name).length}</td><td>{group.balance}</td><td><span className="data-pill good">{group.status}</span></td><td>{group.createdAt}</td><td>{group.stores.join('、') || '—'}</td><td><div className="row-actions"><button type="button" className="table-action" onClick={() => setEditingGroup(group)}>编辑</button><button type="button" className="table-action" onClick={() => setAdjusting({ type: 'group', id: group.id, direction: 'add', amount: 0 })}>豌豆分配/回收</button><button type="button" className="table-action danger-action" onClick={() => { setGroups((rows) => rows.filter((row) => row.id !== group.id)); setMembers((rows) => rows.map((member) => member.group === group.name ? { ...member, group: '' } : member)) }}>解散小组</button></div></td></tr>{expandedGroupId === group.id ? <tr key={`${group.id}-members`}><td colSpan={8}><div className="team-group-tree">{members.filter((member) => member.group === group.name).map((member) => <span key={member.id}>{member.name} · {member.businessRole}</span>)}{members.every((member) => member.group !== group.name) ? <span>暂无成员</span> : null}</div></td></tr> : null}</>)}</tbody></table></div></article> : null}
+    {tab === 'platforms' ? <article className="data-table-card"><header><div><span className="eyebrow">team_platforms</span><h3>{selectedPlatform ? `${selectedPlatform} · 店铺管理` : '平台管理'}</h3></div><div className="table-header-actions">{selectedPlatform ? <button type="button" className="secondary-action" onClick={() => setSelectedPlatform(null)}><ArrowLeft aria-hidden="true" />返回平台列表</button> : null}<button type="button" className="primary-action" onClick={() => selectedPlatform ? (setBindingStore(true), setStoreBindMode('scan'), setStoreName(''), setStoreAccount(''), setStorePassword('')) : (setNewPlatformName(supportedPlatforms[0] ?? ''), setAddingPlatform(true))}><Plus aria-hidden="true" />{selectedPlatform ? '绑定店铺' : '新增平台'}</button></div></header>{selectedPlatform ? <div className="table-scroll"><table><thead><tr><th>店铺名称</th><th>绑定账号</th><th>绑定方式</th><th>绑定时间</th><th>状态</th><th>操作</th></tr></thead><tbody>{selectedPlatformAccounts.map((account) => <tr key={account.id}><td>{account.stores.join('、') || '—'}</td><td>{account.accountName}</td><td>平台授权</td><td>{account.boundAt}</td><td><span className={`data-pill ${account.status === 'connected' ? 'good' : 'warning'}`}>{account.status === 'connected' ? '已连接' : '已过期'}</span></td><td><button type="button" className="table-action danger-action" onClick={() => setTeamPlatformAccounts((rows) => rows.filter((row) => row.id !== account.id))}>解绑店铺</button></td></tr>)}{selectedPlatformAccounts.length === 0 ? <tr><td colSpan={6} className="empty-table-cell">暂未绑定店铺</td></tr> : null}</tbody></table></div> : <div className="table-scroll"><table><thead><tr><th>平台</th><th>已绑定店铺</th><th>已连接账号</th><th>状态</th><th>操作</th></tr></thead><tbody>{teamPlatforms.map((platform) => { const accounts = teamPlatformAccounts.filter((account) => account.platform === platform); return <tr key={platform}><td><strong>{platform}</strong></td><td>{accounts.flatMap((account) => account.stores).join('、') || '—'}</td><td>{accounts.length}</td><td><span className="data-pill good">已启用</span></td><td><button type="button" className="table-action" onClick={() => setSelectedPlatform(platform)}>进入平台</button></td></tr> })}{teamPlatforms.length === 0 ? <tr><td colSpan={5} className="empty-table-cell">暂无平台，请先新增平台</td></tr> : null}</tbody></table></div>}</article> : null}
+    {tab === 'dashboards' ? <article className="data-table-card"><header><div><span className="eyebrow">team_dashboard_templates</span><h3>仪表盘管理</h3></div><button type="button" className="primary-action" onClick={() => setTeamDashboards((rows) => [...rows, { id: `team-dashboard-${Date.now()}`, name: `新仪表盘模板 ${rows.length + 1}`, group: '未分配', status: '草稿' }])}><Plus aria-hidden="true" />新建仪表盘</button></header><div className="table-scroll"><table><thead><tr><th>仪表盘名称</th><th>归属小组</th><th>状态</th><th>操作</th></tr></thead><tbody>{teamDashboards.map((dashboard) => <tr key={dashboard.id}><td><strong>{dashboard.name}</strong></td><td>{dashboard.group}</td><td><span className={`data-pill ${dashboard.status === '已发布' ? 'good' : 'neutral'}`}>{dashboard.status}</span></td><td><div className="row-actions"><button type="button" className="table-action" onClick={() => setTeamDashboards((rows) => rows.map((row) => row.id === dashboard.id ? { ...row, status: row.status === '已发布' ? '已停用' : '已发布' } : row))}>{dashboard.status === '已发布' ? '停用' : '发布'}</button><button type="button" className="table-action">编辑</button><button type="button" className="table-action danger-action" onClick={() => setTeamDashboards((rows) => rows.filter((row) => row.id !== dashboard.id))}>删除</button></div></td></tr>)}</tbody></table></div></article> : null}
+    {tab === 'permissions' ? <>
+      <div className="admin-sub-tabs"><button type="button" className={permissionTab === 'organization' ? 'active' : ''} onClick={() => setPermissionTab('organization')}>组织权限</button><button type="button" className={permissionTab === 'business' ? 'active' : ''} onClick={() => setPermissionTab('business')}>业务权限</button></div>
+      {permissionTab === 'organization' ? <article className="data-table-card"><header><div><span className="eyebrow">organization_permissions</span><h3>组织权限</h3></div></header><div className="table-scroll"><table><thead><tr><th>组织角色</th><th>可见页面</th><th>操作</th></tr></thead><tbody>{organizationPermissions.map((permission) => <tr key={permission.role}><td>{permission.role}</td><td>{permission.pages.join('、') || '—'}</td><td><button type="button" className="table-action" onClick={() => setEditingOrganizationPermission({ ...permission, pages: [...permission.pages] })}>修改</button></td></tr>)}</tbody></table></div></article> : <article className="data-table-card"><header><div><span className="eyebrow">business_roles</span><h3>业务角色</h3></div><button type="button" className="primary-action" onClick={() => setEditingBusinessRole('')}><Plus aria-hidden="true" />新增角色</button></header><div className="table-scroll"><table><thead><tr><th>业务角色名称</th><th>角色人数</th><th>操作项</th></tr></thead><tbody>{businessRoles.map((role) => <tr key={role}><td>{role}</td><td>{members.filter((member) => member.businessRole === role).length}</td><td><div className="row-actions"><button type="button" className="table-action" onClick={() => setEditingBusinessRole(role)}>编辑</button><button type="button" className="table-action">禁用</button><button type="button" className="table-action danger-action" onClick={() => setBusinessRoles((roles) => roles.filter((item) => item !== role))}>删除</button></div></td></tr>)}</tbody></table></div></article>}
+    </> : null}
+    {tab === 'logs' ? <article className="data-table-card"><header><div><span className="eyebrow">team_audit_log</span><h3>操作日志</h3></div></header><div className="table-scroll"><table><thead><tr><th>时间</th><th>操作人</th><th>操作内容</th><th>对象</th></tr></thead><tbody><tr><td>2026-07-28 10:20</td><td>张管理员</td><td>调整成员豌豆余额</td><td>李运营</td></tr><tr><td>2026-07-27 15:32</td><td>王财务</td><td>更新小组店铺权限</td><td>运营组</td></tr><tr><td>2026-07-26 09:10</td><td>张管理员</td><td>创建成员</td><td>陈分析</td></tr></tbody></table></div></article> : null}
+    {addingPlatform ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setAddingPlatform(false)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); const platform = newPlatformName; if (platform && !teamPlatforms.includes(platform)) { setTeamPlatformAccounts((rows) => [...rows, { id: `platform-${Date.now()}`, platform, accountName: '待绑定', boundAt: '—', stores: [], status: 'expired' }]); setNewPlatformName('') }; setAddingPlatform(false) }}><header><div><span className="eyebrow">add_platform</span><h3>新增平台</h3></div><button type="button" className="dialog-close" onClick={() => setAddingPlatform(false)}>×</button></header><label className="dialog-field"><span>平台名称</span><select value={newPlatformName} onChange={(event) => setNewPlatformName(event.target.value)} required><option value="" disabled>请选择已启用平台</option>{supportedPlatforms.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></label><footer><button className="secondary-action" type="button" onClick={() => setAddingPlatform(false)}>取消</button><button className="primary-action" type="submit">新增平台</button></footer></form></div> : null}
+    {bindingStore && selectedPlatform ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setBindingStore(false)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); setTeamPlatformAccounts((rows) => [...rows, { id: `store-${Date.now()}`, platform: selectedPlatform, accountName: storeBindMode === 'password' ? storeAccount : `${selectedPlatform}扫码授权账号`, boundAt: new Date().toISOString().slice(0, 16).replace('T', ' '), stores: [storeName.trim() || `${selectedPlatform}店铺`], status: 'connected' }]); setBindingStore(false) }}><header><div><span className="eyebrow">bind_store</span><h3>绑定 {selectedPlatform} 店铺</h3></div><button type="button" className="dialog-close" onClick={() => setBindingStore(false)}>×</button></header><label className="dialog-field"><span>店铺名称</span><input value={storeName} onChange={(event) => setStoreName(event.target.value)} placeholder="请输入店铺名称" required /></label><div className="dialog-field"><span>绑定方式</span><div className="bind-mode-list"><button type="button" className={`bind-mode-card ${storeBindMode === 'scan' ? 'active' : ''}`} onClick={() => setStoreBindMode('scan')}><span className="bind-mode-card__icon"><QrCode aria-hidden="true" /></span><div><strong>扫码绑定</strong><small>使用平台 App 授权</small></div></button><button type="button" className={`bind-mode-card ${storeBindMode === 'password' ? 'active' : ''}`} onClick={() => setStoreBindMode('password')}><span className="bind-mode-card__icon"><KeyRound aria-hidden="true" /></span><div><strong>账号密码绑定</strong><small>使用后台账号授权</small></div></button></div></div>{storeBindMode === 'scan' ? <div className="bind-scan-area"><div className="bind-qr-placeholder"><QrCode aria-hidden="true" /></div><small>请使用 {selectedPlatform} App 扫码确认授权。</small></div> : <><label className="dialog-field"><span>平台账号</span><input value={storeAccount} onChange={(event) => setStoreAccount(event.target.value)} required /></label><label className="dialog-field"><span>平台密码</span><input type="password" value={storePassword} onChange={(event) => setStorePassword(event.target.value)} required /></label></>}<footer><button className="secondary-action" type="button" onClick={() => setBindingStore(false)}>取消</button><button className="primary-action" type="submit">确认绑定</button></footer></form></div> : null}
+    {editingMember ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingMember(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); saveMember() }}><header><div><span className="eyebrow">team_member</span><h3>{editingMember.id ? '编辑成员' : '创建成员'}</h3></div><button type="button" className="dialog-close" onClick={() => setEditingMember(null)}>×</button></header><label className="dialog-field"><span>姓名</span><input value={editingMember.name} onChange={(event) => setEditingMember({ ...editingMember, name: event.target.value })} required /></label><label className="dialog-field"><span>邮箱</span><input value={editingMember.email} onChange={(event) => setEditingMember({ ...editingMember, email: event.target.value })} required /></label><label className="dialog-field"><span>手机号</span><input value={editingMember.phone} onChange={(event) => setEditingMember({ ...editingMember, phone: event.target.value })} /></label><label className="dialog-field"><span>公司 / 部门 / 岗位</span><input value={editingMember.orgInfo} onChange={(event) => setEditingMember({ ...editingMember, orgInfo: event.target.value })} /></label><footer><button className="secondary-action" type="button" onClick={() => setEditingMember(null)}>取消</button><button className="primary-action" type="submit">保存</button></footer></form></div> : null}
+    {permissionMember ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setPermissionMember(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); savePermission() }}><header><div><span className="eyebrow">member_permissions</span><h3>权限管理</h3></div><button type="button" className="dialog-close" onClick={() => setPermissionMember(null)}>×</button></header><label className="dialog-field"><span>组织角色</span><select value={permissionMember.organizationRole} onChange={(event) => setPermissionMember({ ...permissionMember, organizationRole: event.target.value as TeamMemberRecord['organizationRole'] })}><option>商户管理员</option><option>小组长</option><option>普通员工</option></select></label>{permissionMember.organizationRole === '小组长' ? <><label className="dialog-field"><span>小组名称</span><select value={permissionMember.group} onChange={(event) => setPermissionMember({ ...permissionMember, group: event.target.value })}>{groups.map((group) => <option key={group.id} value={group.name}>{group.name}</option>)}</select></label><p className="review-original-note">当前组长：{groupLeader}</p></> : null}<label className="dialog-field"><span>业务角色</span><select value={permissionMember.businessRole} onChange={(event) => setPermissionMember({ ...permissionMember, businessRole: event.target.value as TeamMemberRecord['businessRole'] })}>{businessRoles.map((role) => <option key={role}>{role}</option>)}</select></label><div className="dialog-field"><span>权限管理</span><div className="binding-checkbox-list">{teamModuleOptions.map((module) => <label key={module} className="binding-checkbox-item"><input type="checkbox" checked={permissionMember.modules.includes(module)} onChange={() => setPermissionMember({ ...permissionMember, modules: permissionMember.modules.includes(module) ? permissionMember.modules.filter((item) => item !== module) : [...permissionMember.modules, module] })} />{module}</label>)}</div></div><footer><button className="secondary-action" type="button" onClick={() => setPermissionMember(null)}>取消</button><button className="primary-action" type="submit">保存权限</button></footer></form></div> : null}
+    {editingOrganizationPermission ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingOrganizationPermission(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); setOrganizationPermissions((rows) => rows.map((row) => row.role === editingOrganizationPermission.role ? editingOrganizationPermission : row)); setEditingOrganizationPermission(null) }}><header><div><span className="eyebrow">organization_permissions</span><h3>配置{editingOrganizationPermission.role}可见页面</h3></div><button type="button" className="dialog-close" onClick={() => setEditingOrganizationPermission(null)}>×</button></header><div className="dialog-field"><span>页面权限</span><div className="permission-tree"><label className="permission-tree__root"><input type="checkbox" checked={editingOrganizationPermission.pages.length === teamModuleOptions.length} onChange={(event) => setEditingOrganizationPermission({ ...editingOrganizationPermission, pages: event.target.checked ? [...teamModuleOptions] : [] })} />管理后台</label><div className="permission-tree__children">{teamModuleOptions.map((module) => <label key={module} className="permission-tree__item"><input type="checkbox" checked={editingOrganizationPermission.pages.includes(module)} onChange={() => setEditingOrganizationPermission({ ...editingOrganizationPermission, pages: editingOrganizationPermission.pages.includes(module) ? editingOrganizationPermission.pages.filter((item) => item !== module) : [...editingOrganizationPermission.pages, module] })} />{module}</label>)}</div></div></div><footer><button className="secondary-action" type="button" onClick={() => setEditingOrganizationPermission(null)}>取消</button><button className="primary-action" type="submit">保存权限</button></footer></form></div> : null}
+    {editingGroup ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingGroup(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); saveGroup() }}><header><div><span className="eyebrow">team_group</span><h3>{editingGroup.id ? '编辑小组' : '创建小组'}</h3></div><button type="button" className="dialog-close" onClick={() => setEditingGroup(null)}>×</button></header><label className="dialog-field"><span>小组名称</span><input value={editingGroup.name} onChange={(event) => setEditingGroup({ ...editingGroup, name: event.target.value })} required /></label><label className="dialog-field"><span>指定组长</span><select value={editingGroup.leader} onChange={(event) => setEditingGroup({ ...editingGroup, leader: event.target.value })}><option value="">暂不指定</option>{members.map((member) => <option key={member.id}>{member.name}</option>)}</select></label><div className="dialog-field"><span>关联店铺</span><div className="binding-checkbox-list">{availableStores.map((store) => <label className="binding-checkbox-item" key={store}><input type="checkbox" checked={editingGroup.stores.includes(store)} onChange={() => setEditingGroup({ ...editingGroup, stores: editingGroup.stores.includes(store) ? editingGroup.stores.filter((item) => item !== store) : [...editingGroup.stores, store] })} />{store}</label>)}</div></div><footer><button className="secondary-action" type="button" onClick={() => setEditingGroup(null)}>取消</button><button className="primary-action" type="submit">保存</button></footer></form></div> : null}
+    {adjusting ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setAdjusting(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); if (adjusting.type === 'member') setMembers((rows) => rows.map((row) => row.id === adjusting.id ? { ...row, peaBalance: Math.max(0, row.peaBalance + (adjusting.direction === 'add' ? adjusting.amount : -adjusting.amount)) } : row)); else setGroups((rows) => rows.map((row) => row.id === adjusting.id ? { ...row, balance: Math.max(0, row.balance + (adjusting.direction === 'add' ? adjusting.amount : -adjusting.amount)) } : row)); setAdjusting(null) }}><header><div><span className="eyebrow">pea_allocation</span><h3>豌豆分配 / 回收</h3></div><button type="button" className="dialog-close" onClick={() => setAdjusting(null)}>×</button></header><label className="dialog-field"><span>操作类型</span><select value={adjusting.direction} onChange={(event) => setAdjusting({ ...adjusting, direction: event.target.value as 'add' | 'subtract' })}><option value="add">分配</option><option value="subtract">回收</option></select></label><label className="dialog-field"><span>豌豆数量</span><input type="number" min="1" value={adjusting.amount || ''} onChange={(event) => setAdjusting({ ...adjusting, amount: Number(event.target.value) })} required /></label><footer><button className="secondary-action" type="button" onClick={() => setAdjusting(null)}>取消</button><button className="primary-action" type="submit">确认</button></footer></form></div> : null}
+    {editingBusinessRole !== null ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingBusinessRole(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); const name = editingBusinessRole.trim(); if (name && !businessRoles.includes(name)) setBusinessRoles((roles) => [...roles, name]); setEditingBusinessRole(null) }}><header><div><span className="eyebrow">business_role</span><h3>{businessRoles.includes(editingBusinessRole) ? '编辑业务角色' : '新增业务角色'}</h3></div><button type="button" className="dialog-close" onClick={() => setEditingBusinessRole(null)}>×</button></header><label className="dialog-field"><span>角色名称</span><input value={editingBusinessRole} onChange={(event) => setEditingBusinessRole(event.target.value)} required /></label><div className="dialog-field"><span>操作权限</span><div className="permission-tree"><label className="permission-tree__root"><input type="checkbox" defaultChecked />数据中心</label><div className="permission-tree__children"><label className="permission-tree__item"><input type="checkbox" defaultChecked />日报任务记录</label><div className="permission-tree__children">{teamOperationPermissions.slice(0, 5).map((item) => <label key={item} className="permission-tree__item"><input type="checkbox" defaultChecked />{item.replace('日报任务记录：', '')}</label>)}</div><label className="permission-tree__item"><input type="checkbox" defaultChecked />日报数据</label><div className="permission-tree__children"><label className="permission-tree__item"><input type="checkbox" defaultChecked />修改</label></div></div></div></div><div className="dialog-field"><span>数据权限</span><div className="permission-tree"><label className="permission-tree__root"><input type="checkbox" defaultChecked />数据中心</label><div className="permission-tree__children"><label className="permission-tree__item"><input type="checkbox" defaultChecked />日报记录</label><div className="permission-tree__children">{teamDataPermissions.map((item, index) => <label key={item} className="permission-tree__item"><input type="checkbox" defaultChecked={index < 3} />{item}</label>)}</div></div></div><small className="dialog-field-hint">业务日期、平台名称、店铺名称全员可见。</small></div><footer><button className="secondary-action" type="button" onClick={() => setEditingBusinessRole(null)}>取消</button><button className="primary-action" type="submit">保存</button></footer></form></div> : null}
+  </>
+}
+
 // ===================== 组件 =====================
 
-export default function AdminPage() {
-  const [adminTab, setAdminTab] = useState<AdminTab>('llm')
-  const [llmTab, setLlmTab] = useState<LlmTab>('api')
+export default function AdminPage({ activeTab = 'tasks', onNavigate: _onNavigate = () => {}, context = 'system', initialTeamId }: { activeTab?: AdminTab; onNavigate?: (tab: AdminTab) => void; context?: 'system' | 'merchant'; initialTeamId?: string } = {}) {
+  const adminTab = activeTab
+  const isMerchantContext = context === 'merchant'
+  const [adminTaskTab, setAdminTaskTab] = useState<AdminTaskTab>('pea')
   const [peaTab, setPeaTab] = useState<PeaTab>('all')
-  const [apiKeyVisible, setApiKeyVisible] = useState<Record<string, boolean>>({})
-  const [editingApi, setEditingApi] = useState<LlmApiConfig | null>(null)
-  const [editingBinding, setEditingBinding] = useState<ComponentBinding | null>(null)
+  const [peaTaskStatus, setPeaTaskStatus] = useState<'全部' | TaskResult>('全部')
+  const [peaTeam, setPeaTeam] = useState('全部')
+  const [peaFeatureType, setPeaFeatureType] = useState('全部')
+  const [peaStartDate, setPeaStartDate] = useState('')
+  const [peaEndDate, setPeaEndDate] = useState('')
   const [logRecord, setLogRecord] = useState<PeaRecord | null>(null)
+  const [supportedPlatforms, setSupportedPlatforms] = useState<SupportedPlatform[]>([
+    { id: 'platform-ks', name: '快手', status: '已启用', updatedAt: '2026-07-20' },
+    { id: 'platform-vip', name: '唯品会', status: '已启用', updatedAt: '2026-07-20' },
+    { id: 'platform-doudian', name: '抖店', status: '已启用', updatedAt: '2026-07-18' },
+    { id: 'platform-aikucun', name: '爱库存', status: '已启用', updatedAt: '2026-07-18' },
+    { id: 'platform-haoyiku', name: '好衣库', status: '已停用', updatedAt: '2026-07-12' },
+  ])
+  const [editingSupportedPlatform, setEditingSupportedPlatform] = useState<SupportedPlatform | null>(null)
 
   // 团队管理状态
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(initialTeamId ?? null)
   const [teamAccounts, setTeamAccounts] = useState<Record<string, TeamPlatformAccount[]>>(initialTeamAccounts)
   const [teamBindOpen, setTeamBindOpen] = useState(false)
   const [teamBindPlatform, setTeamBindPlatform] = useState(bindablePlatforms[0])
@@ -234,145 +311,42 @@ export default function AdminPage() {
   const currentTeamAccounts = selectedTeamId ? (teamAccounts[selectedTeamId] ?? []) : []
 
   const totalPeaCost = peaRecords.reduce((sum, r) => sum + r.peaCost, 0)
-  const filteredPea = peaTab === 'all' ? peaRecords : peaRecords.filter((r) => r.taskType === peaTab)
+  const peaTeams = Array.from(new Set(peaRecords.map((record) => record.team)))
+  const peaFeatureTypes = Array.from(new Set(peaRecords.map((record) => record.featureType)))
+  const filteredPea = peaRecords
+    .filter((record) => peaTab === 'all' || record.taskType === peaTab)
+    .filter((record) => peaTaskStatus === '全部' || record.taskResult === peaTaskStatus)
+    .filter((record) => peaTeam === '全部' || record.team === peaTeam)
+    .filter((record) => peaFeatureType === '全部' || record.featureType === peaFeatureType)
+    .filter((record) => !peaStartDate || record.taskDate.slice(0, 10) >= peaStartDate)
+    .filter((record) => !peaEndDate || record.taskDate.slice(0, 10) <= peaEndDate)
+
+  if (adminTab === 'team' && selectedTeam) {
+    return <TeamDetailPage team={selectedTeam} onBack={() => setSelectedTeamId(null)} supportedPlatforms={supportedPlatforms.map((platform) => platform.name)} />
+  }
 
   return (
     <>
       <section className="data-scope-note">
         <div>
-          <span className="eyebrow">system_admin</span>
-          <h2>系统管理员</h2>
+          <span className="eyebrow">{isMerchantContext ? 'merchant_task_management' : 'system_admin'}</span>
+          <div className="admin-page-title">
+            <h2>{isMerchantContext ? '商户管理员' : '系统管理员'}</h2>
+            <span>{isMerchantContext ? '查看商户范围内的任务消耗记录。' : 'AI、Skill、Agent 管理后续迭代时设计具体页面内容及样式，目前仅做占位；团队管理为原后台“团队管理”一级菜单里新增内容。'}</span>
+          </div>
         </div>
-        <p>管理系统 LLM 配置、组件绑定、豌豆消耗记录与团队管理。</p>
+        <p>{isMerchantContext ? '管理商户任务的豌豆值消耗与执行记录。' : '管理系统 AI 配置、组件绑定、豌豆消耗记录与团队管理。'}</p>
       </section>
 
-      <div className="admin-tabs">
-        <button type="button" className={adminTab === 'llm' ? 'active' : ''} onClick={() => setAdminTab('llm')}>LLM 管理</button>
-        <button type="button" className={adminTab === 'pea' ? 'active' : ''} onClick={() => setAdminTab('pea')}>豌豆值消耗记录</button>
-        <button type="button" className={adminTab === 'team' ? 'active' : ''} onClick={() => { setAdminTab('team'); setSelectedTeamId(null) }}>
-          <Users aria-hidden="true" />
-          团队管理
-        </button>
-      </div>
-
-      {adminTab === 'llm' ? (
-        <>
-          <div className="admin-sub-tabs">
-            <button type="button" className={llmTab === 'api' ? 'active' : ''} onClick={() => setLlmTab('api')}>API 管理</button>
-            <button type="button" className={llmTab === 'binding' ? 'active' : ''} onClick={() => setLlmTab('binding')}>组件绑定</button>
-          </div>
-
-          {llmTab === 'api' ? (
-            <article className="data-table-card">
-              <header>
-                <div>
-                  <span className="eyebrow">llm_api_config</span>
-                  <h3>API 管理</h3>
-                </div>
-                <button className="primary-action" type="button" onClick={() => setEditingApi({ id: '', provider: '', baseUrl: '', modelName: '', apiKey: '', maxTokens: 4096, temperature: 0.7, status: 'enabled', isDefault: false })}>
-                  <Plus aria-hidden="true" />新增 API 配置
-                </button>
-              </header>
-              <div className="table-scroll">
-                <table className="api-config-table">
-                  <thead>
-                    <tr>
-                      <th>服务商</th>
-                      <th>Base URL</th>
-                      <th>模型名称</th>
-                      <th>API Key</th>
-                      <th>Max Tokens</th>
-                      <th>Temperature</th>
-                      <th>状态</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {llmApiConfigs.map((api) => (
-                      <tr key={api.id}>
-                        <td>
-                          <strong>{api.provider}</strong>
-                          {api.isDefault ? <span className="data-pill normal" style={{ marginLeft: 6 }}>默认</span> : null}
-                        </td>
-                        <td><code className="api-url">{api.baseUrl}</code></td>
-                        <td><span className="data-pill normal">{api.modelName}</span></td>
-                        <td>
-                          <span className="api-key-cell">
-                            <code>{apiKeyVisible[api.id] ? api.apiKey : '••••••••••••' + api.apiKey.slice(-4)}</code>
-                            <button type="button" className="icon-btn-sm" onClick={() => setApiKeyVisible((s) => ({ ...s, [api.id]: !s[api.id] }))}>
-                              {apiKeyVisible[api.id] ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                            </button>
-                          </span>
-                        </td>
-                        <td className="mono-num">{api.maxTokens}</td>
-                        <td className="mono-num">{api.temperature}</td>
-                        <td>
-                          <span className={`data-pill ${api.status === 'enabled' ? 'good' : 'warning'}`}>
-                            {api.status === 'enabled' ? '已启用' : '已停用'}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="row-actions">
-                            <button type="button" className="icon-btn-sm" title="编辑" onClick={() => setEditingApi(api)}><Pencil aria-hidden="true" /></button>
-                            <button type="button" className="icon-btn-sm" title="测试"><Zap aria-hidden="true" /></button>
-                            <button type="button" className="icon-btn-sm danger" title="删除"><Trash2 aria-hidden="true" /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </article>
-          ) : (
-            <article className="data-table-card">
-              <header>
-                <div>
-                  <span className="eyebrow">component_binding</span>
-                  <h3>组件绑定</h3>
-                </div>
-                <button className="primary-action" type="button" onClick={() => setEditingBinding({ id: '', name: '', workflow: '', inputs: [], status: 'active' })}>
-                  <Plus aria-hidden="true" />新增绑定
-                </button>
-              </header>
-              <div className="binding-list">
-                {componentBindings.map((binding) => (
-                  <article key={binding.id} className={`binding-card ${binding.status === 'inactive' ? 'inactive' : ''}`}>
-                    <header className="binding-card__head">
-                      <div className="binding-card__title">
-                        <span className="binding-card__icon"><Zap aria-hidden="true" /></span>
-                        <div>
-                          <strong>{binding.name}</strong>
-                        </div>
-                      </div>
-                      <div className="binding-card__meta">
-                        <span className="data-pill normal">{binding.workflow}</span>
-                        <span className={`data-pill ${binding.status === 'active' ? 'good' : 'warning'}`}>{binding.status === 'active' ? '已激活' : '未激活'}</span>
-                      </div>
-                    </header>
-                    <div className="binding-card__inputs">
-                      <small className="binding-card__label">输入参数</small>
-                      <div className="binding-input-tags">
-                        {binding.inputs.map((input) => (
-                          <span key={input} className="binding-input-tag">
-                            <code>{input}</code>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <footer className="binding-card__foot">
-                      <button type="button" className="icon-btn-sm" title="编辑" onClick={() => setEditingBinding(binding)}><Pencil aria-hidden="true" /></button>
-                      <button type="button" className="icon-btn-sm danger" title="删除"><Trash2 aria-hidden="true" /></button>
-                    </footer>
-                  </article>
-                ))}
-              </div>
-            </article>
-          )}
-        </>
+      {adminTab === 'tasks' ? (
+        <div className="admin-sub-tabs" aria-label="任务管理分类">
+          <button type="button" className={adminTaskTab === 'pea' ? 'active' : ''} onClick={() => setAdminTaskTab('pea')}>豌豆值消耗记录</button>
+        </div>
       ) : null}
 
-      {adminTab === 'pea' ? (
+      {adminTab === 'platforms' ? <article className="data-table-card"><header><div><span className="eyebrow">supported_platforms</span><h3>平台维护</h3></div><button type="button" className="primary-action" onClick={() => setEditingSupportedPlatform({ id: '', name: '', status: '已启用', updatedAt: '' })}><Plus aria-hidden="true" />新增支持平台</button></header><div className="table-scroll"><table><thead><tr><th>平台名称</th><th>状态</th><th>最近更新</th><th>操作</th></tr></thead><tbody>{supportedPlatforms.map((platform) => <tr key={platform.id}><td><strong>{platform.name}</strong></td><td><span className={`data-pill ${platform.status === '已启用' ? 'good' : 'warning'}`}>{platform.status}</span></td><td>{platform.updatedAt}</td><td><div className="row-actions"><button type="button" className="table-action" onClick={() => setEditingSupportedPlatform(platform)}>编辑</button><button type="button" className="table-action" onClick={() => setSupportedPlatforms((rows) => rows.map((row) => row.id === platform.id ? { ...row, status: row.status === '已启用' ? '已停用' : '已启用', updatedAt: new Date().toISOString().slice(0, 10) } : row))}>{platform.status === '已启用' ? '停用' : '启用'}</button><button type="button" className="table-action danger-action" onClick={() => setSupportedPlatforms((rows) => rows.filter((row) => row.id !== platform.id))}>删除</button></div></td></tr>)}</tbody></table></div></article> : null}
+
+      {adminTab === 'tasks' && adminTaskTab === 'pea' ? (
         <article className="data-table-card">
           <header>
             <div>
@@ -393,17 +367,49 @@ export default function AdminPage() {
               </button>
             ))}
           </div>
+          <div className="ledger-filters pea-record-filters" aria-label="豌豆值消耗记录筛选">
+            <label className="store-filter">
+              <span>任务状态</span>
+              <select value={peaTaskStatus} onChange={(event) => setPeaTaskStatus(event.target.value as '全部' | TaskResult)}>
+                <option value="全部">全部状态</option>
+                <option value="完成">完成</option>
+                <option value="失败">失败</option>
+              </select>
+            </label>
+            <label className="store-filter">
+              <span>团队</span>
+              <select value={peaTeam} onChange={(event) => setPeaTeam(event.target.value)}>
+                <option value="全部">全部团队</option>
+                {peaTeams.map((team) => <option key={team} value={team}>{team}</option>)}
+              </select>
+            </label>
+            <label className="store-filter">
+              <span>功能类型</span>
+              <select value={peaFeatureType} onChange={(event) => setPeaFeatureType(event.target.value)}>
+                <option value="全部">全部类型</option>
+                {peaFeatureTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </label>
+            <label className="store-filter date-range-filter">
+              <span>任务日期</span>
+              <input type="date" value={peaStartDate} onChange={(event) => setPeaStartDate(event.target.value)} />
+              <b>至</b>
+              <input type="date" value={peaEndDate} onChange={(event) => setPeaEndDate(event.target.value)} />
+            </label>
+          </div>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
                   <th>任务 ID</th>
+                  <th>功能类型</th>
                   <th>任务来源</th>
                   <th>平台</th>
                   <th>店铺</th>
                   <th>任务日期</th>
                   <th>业务日期</th>
                   <th>豌豆消耗</th>
+                  <th>所属团队</th>
                   <th>归属人员</th>
                   <th>审核人</th>
                   <th>结果预览</th>
@@ -416,12 +422,14 @@ export default function AdminPage() {
                 {filteredPea.map((row) => (
                   <tr key={row.id}>
                     <td><span className="batch-id">{row.taskId}</span></td>
+                    <td><span className="data-pill normal">{row.featureType}</span></td>
                     <td><span className={`data-pill ${row.source === '人工上传文件' ? 'warning' : 'normal'}`}>{row.source}</span></td>
                     <td>{row.platform}</td>
                     <td>{row.store}</td>
                     <td>{row.taskDate}</td>
                     <td>{row.businessDate}</td>
                     <td><span className="data-pill pea-cost">{row.peaCost}</span></td>
+                    <td>{row.team}</td>
                     <td>{row.owner}</td>
                     <td>{row.reviewer || '—'}</td>
                     <td>{row.resultPreview}</td>
@@ -555,6 +563,8 @@ export default function AdminPage() {
           </article>
         )
       ) : null}
+
+      {editingSupportedPlatform ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingSupportedPlatform(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); const name = editingSupportedPlatform.name.trim(); if (!name) return; const platform = { ...editingSupportedPlatform, name, updatedAt: new Date().toISOString().slice(0, 10) }; setSupportedPlatforms((rows) => platform.id ? rows.map((row) => row.id === platform.id ? platform : row) : [...rows, { ...platform, id: `supported-platform-${Date.now()}` }]); setEditingSupportedPlatform(null) }}><header><div><span className="eyebrow">supported_platform</span><h3>{editingSupportedPlatform.id ? '编辑支持平台' : '新增支持平台'}</h3></div><button type="button" className="dialog-close" onClick={() => setEditingSupportedPlatform(null)}>×</button></header><label className="dialog-field"><span>平台名称</span><input value={editingSupportedPlatform.name} onChange={(event) => setEditingSupportedPlatform({ ...editingSupportedPlatform, name: event.target.value })} placeholder="如 淘宝、抖店、快手" required /></label><label className="dialog-field"><span>状态</span><select value={editingSupportedPlatform.status} onChange={(event) => setEditingSupportedPlatform({ ...editingSupportedPlatform, status: event.target.value as SupportedPlatform['status'] })}><option>已启用</option><option>已停用</option></select></label><footer><button className="secondary-action" type="button" onClick={() => setEditingSupportedPlatform(null)}>取消</button><button className="primary-action" type="submit">保存</button></footer></form></div> : null}
 
       {/* 团队绑定平台账号弹窗 */}
       {teamBindOpen && selectedTeam ? (
@@ -755,7 +765,8 @@ export default function AdminPage() {
           </form>
         </div>
       ) : null}
-      {editingApi ? (
+      {/* 已移除的 AI 管理弹窗 */}
+      {/* {editingApi ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setEditingApi(null)}>
           <form className="ledger-dialog create-task-dialog" onSubmit={(e) => { e.preventDefault(); setEditingApi(null) }}>
             <header>
@@ -806,7 +817,7 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {/* 组件绑定编辑弹窗 */}
+      组件绑定编辑弹窗
       {editingBinding ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setEditingBinding(null)}>
           <form className="ledger-dialog create-task-dialog" onSubmit={(e) => { e.preventDefault(); setEditingBinding(null) }}>
@@ -870,6 +881,7 @@ export default function AdminPage() {
         </div>
       ) : null}
 
+      ) : null} */}
       {/* 任务日志弹窗 */}
       {logRecord ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setLogRecord(null)}>

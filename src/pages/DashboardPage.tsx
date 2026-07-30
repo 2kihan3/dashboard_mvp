@@ -14,6 +14,7 @@ import {
   platformMetricSpecs,
   platforms,
   fieldPeriodValue,
+  storeShares,
 } from '../lib/metrics'
 
 type DashboardView = 'global' | 'team' | 'personal'
@@ -23,8 +24,13 @@ const tooltipStyle = { background: '#101a18', border: '1px solid rgba(121,219,19
 const axisProps = { tickLine: false, axisLine: false, stroke: '#8da39b', fontSize: 11 }
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`
 
-function MetricSummaryCard({ platform, period, field, label, sublabel }: { platform: PlatformName; period: Period; field: string; label: string; sublabel: string }) {
-  const value = fieldSummaryValue(platform, field, period)
+function selectedStoreShare(platform: PlatformName, store?: string) {
+  if (!store || platform === '总计') return 1
+  return storeShares[platform].find((item) => item.name === store)?.share ?? 1
+}
+
+function MetricSummaryCard({ platform, period, field, label, sublabel, store }: { platform: PlatformName; period: Period; field: string; label: string; sublabel: string; store?: string }) {
+  const value = fieldSummaryValue(platform, field, period) * selectedStoreShare(platform, store)
   const buckets = periodBuckets(period)
   const currentSum = buckets.reduce((sum, bucket) => sum + fieldPeriodValue(platform, field, period, bucket.indexes), 0)
   void currentSum
@@ -41,36 +47,36 @@ function MetricSummaryCard({ platform, period, field, label, sublabel }: { platf
     <article className="metric-summary-card">
       <header><span className="eyebrow">{sublabel}</span><h3>{label}</h3></header>
       <div className="metric-summary-card__value"><strong>{formatPrecise(value)}</strong><span className={`metric-delta ${delta.startsWith('+') ? 'positive' : 'negative'}`}><TrendingUp aria-hidden="true" />{delta}</span></div>
-      <footer><span>{platform === '总计' ? '所有平台合计' : `${platform} · 当前${period === 'day' ? '日' : period === 'week' ? '周' : period === 'month' ? '月' : '年'}`}</span></footer>
+      <footer><span>{platform === '总计' ? '所有平台合计' : `${store ?? platform} · 当前${period === 'day' ? '日' : period === 'week' ? '周' : period === 'month' ? '月' : '年'}`}</span></footer>
     </article>
   )
 }
 
-function DailyGmvCard({ platform }: { platform: Exclude<PlatformName, '总计'> }) {
+function DailyGmvCard({ platform, store }: { platform: Exclude<PlatformName, '总计'>; store?: string }) {
   const day = periodBuckets('day')[0]
-  const value = fieldPeriodValue(platform, '平台成交GMV', 'day', day.indexes)
+  const value = fieldPeriodValue(platform, '平台成交GMV', 'day', day.indexes) * selectedStoreShare(platform, store)
   return (
     <article className="daily-gmv-card">
-      <header><h3>{platform}</h3><span className="eyebrow">GMV</span></header>
+      <header><h3>{store ?? platform}</h3><span className="eyebrow">GMV</span></header>
       <strong>{formatPrecise(value)}</strong>
       <footer>{day.label}</footer>
     </article>
   )
 }
 
-function DailyGmvChart({ platform }: { platform: PlatformName }) {
+function DailyGmvChart({ platform, store }: { platform: PlatformName; store?: string }) {
   const dailyPlatforms: Exclude<PlatformName, '总计'>[] = platform === '总计'
     ? reportData.map((item) => item.platform)
     : [platform]
   return (
     <ChartShell title="GMV" subtitle="最近业务日 · 平台">
-      <div className="daily-gmv-grid">{dailyPlatforms.map((item) => <DailyGmvCard key={item} platform={item} />)}</div>
-      <p className="global-chart-note">日维度下 GMV 以数值卡片展示；切换平台后仅保留该平台的 GMV。</p>
+      <div className="daily-gmv-grid">{dailyPlatforms.map((item) => <DailyGmvCard key={item} platform={item} store={store} />)}</div>
+      <p className="global-chart-note">日维度下 GMV 以数值卡片展示；选择店铺后仅保留该店铺的 GMV。</p>
     </ChartShell>
   )
 }
 
-function GlobalDashboard({ period, onPeriodChange }: { period: Period; onPeriodChange: (period: Period) => void }) {
+function ExpectedGlobalStatsContent({ period }: { period: Period }) {
   const operatingData = useMemo(() => operatingTrendData(period), [period])
   const costData = useMemo(() => costCompositionData(period), [period])
   const ratioData = useMemo(() => ratioTrendData(period), [period])
@@ -78,15 +84,6 @@ function GlobalDashboard({ period, onPeriodChange }: { period: Period; onPeriodC
   const latestRatio = ratioData[ratioData.length - 1]?.actualRevenueRatio ?? 0
 
   return (
-    <>
-      <section className="data-scope-note global-dashboard-head" data-prd-anchor="dashboard-global-scope">
-        <div className="global-dashboard-title"><span className="eyebrow">global_dashboard · {periodLabel}</span><div><h2>全局经营看板</h2><span className="global-dashboard-title__notice">全量数据正在加紧获取，当前版本请到“团队看板”查看已有数据内容。</span></div></div>
-        <p>覆盖销售、净利润、费用和费率。当前数据为前端虚拟数据，用于确认图表口径与布局。</p>
-      </section>
-      <section className="filters global-dashboard-filter" aria-label="全局看板时间维度">
-        <div className="segmented">{periods.map((item) => <button className={period === item.key ? 'selected' : ''} key={item.key} type="button" onClick={() => onPeriodChange(item.key)}>{item.label}</button>)}</div>
-        <span className="global-dashboard-filter__hint">{periodLabel} · 更新至最近业务日期</span>
-      </section>
       <section className="global-chart-grid" data-prd-anchor="dashboard-global-charts">
         <ChartShell title="销售与净利润趋势" subtitle={`${periodLabel} · 金额`}>
           <div className="chart-summary-value">GMV {formatPrecise(operatingData.reduce((sum, row) => sum + row.gmv, 0))}</div>
@@ -104,11 +101,54 @@ function GlobalDashboard({ period, onPeriodChange }: { period: Period; onPeriodC
           <p className="global-chart-note">推广占比不含 BD 佣金；平台费用与推广费用以平台收入为分母，退货和变动费用以实际收入为分母。</p>
         </ChartShell>
       </section>
+  )
+}
+
+function ExpectedGlobalStatsDialog({ period, onClose }: { period: Period; onClose: () => void }) {
+  return (
+    <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="ledger-dialog expected-global-dialog" role="dialog" aria-modal="true" aria-labelledby="expected-global-stats-title">
+        <header><div><span className="eyebrow">global_dashboard · expected_full_version</span><h3 id="expected-global-stats-title">全局看板预期完整版</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={onClose}>×</button></header>
+        <p>全量数据接入完成后，将按当前时间维度展示销售、费用和经营费率统计。</p>
+        <div className="expected-global-dialog__body"><ExpectedGlobalStatsContent period={period} /></div>
+      </section>
+    </div>
+  )
+}
+
+function GlobalDashboard({ period, platform, store, onPeriodChange, onPlatformChange, onStoreChange }: { period: Period; platform: PlatformName; store: string; onPeriodChange: (period: Period) => void; onPlatformChange: (platform: PlatformName) => void; onStoreChange: (store: string) => void }) {
+  const [expectedStatsOpen, setExpectedStatsOpen] = useState(false)
+  const periodText = period === 'day' ? '前一天' : period === 'week' ? '自然周' : period === 'month' ? '本月' : '本年'
+  const specs = platformMetricSpecs[platform]
+  const isDailyView = period === 'day'
+  const storeOptions = platform === '总计' ? [] : storeShares[platform]
+  return (
+    <>
+      <section className="data-scope-note global-dashboard-head" data-prd-anchor="dashboard-global-scope">
+        <div className="global-dashboard-title"><div><h2>全局经营看板</h2><span className="global-dashboard-title__notice">当前展示已接入的平台经营数据。</span></div><span className="global-dashboard-title__context">{platform} · {periodText}</span></div>
+        <div className="global-dashboard-head__actions"><button className="secondary-action" type="button" onClick={() => setExpectedStatsOpen(true)}>全量数据看板预览</button><p>全量统计数据仍在接入中，可先查看当前已有经营数据。</p></div>
+      </section>
+      <section className="filters global-dashboard-filters" aria-label="全局看板筛选" data-prd-anchor="dashboard-global-filters"><div className="segmented">{periods.map((item) => <button className={period === item.key ? 'selected' : ''} key={item.key} type="button" onClick={() => onPeriodChange(item.key)}>{item.label}</button>)}</div><div className="global-dashboard-filters__scope"><div className="platform-tabs">{platforms.map((item) => <button className={platform === item ? 'selected' : ''} key={item} type="button" onClick={() => onPlatformChange(item)}>{item}</button>)}</div>{storeOptions.length ? <label className="store-select"><span>店铺</span><select aria-label={`${platform}店铺筛选`} value={store} onChange={(event) => onStoreChange(event.target.value)}><option value="全部店铺">全部店铺</option>{storeOptions.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label> : <span className="store-tabs__hint">选择平台后可筛选店铺</span>}</div></section>
+      <section className="metric-summary-grid" data-prd-anchor="dashboard-global-metrics">{specs.map((spec) => <MetricSummaryCard key={spec.field} platform={platform} period={period} field={spec.field} label={spec.chartTitle} sublabel={`${spec.category} · ${spec.field}`} store={store === '全部店铺' ? undefined : store} />)}</section>
+      <section className="dashboard-grid" data-prd-anchor="dashboard-global-charts">{specs.map((spec) => isDailyView && spec.field === '平台成交GMV' ? <DailyGmvChart key={spec.field} platform={platform} store={store === '全部店铺' ? undefined : store} /> : <MetricChart key={spec.field} platform={platform} period={period} spec={spec} store={store === '全部店铺' ? undefined : store} />)}</section>
+      <section className="dashboard-source-note"><LineChartIcon aria-hidden="true" /><span>数据范围：{platform === '总计' ? reportData.map((item) => item.platform).join(' / ') : `${platform} · ${store}`} · 周期、平台和店铺切换会同步刷新指标卡与图表。</span></section>
+      <section className="dashboard-engine-hint"><BarChart3 aria-hidden="true" /><div><strong>需要更细的拆解？</strong><span>切到 chatbot 直接追问，经营引擎会基于这些数据生成归因结论。</span></div></section>
+      {expectedStatsOpen ? <ExpectedGlobalStatsDialog period={period} onClose={() => setExpectedStatsOpen(false)} /> : null}
     </>
   )
 }
 
-function TeamDashboard({ period, platform, onPeriodChange, onPlatformChange }: { period: Period; platform: PlatformName; onPeriodChange: (period: Period) => void; onPlatformChange: (platform: PlatformName) => void }) {
+function DashboardComingSoon({ title, description }: { title: string; description: string }) {
+  return (
+    <section className="dashboard-coming-soon" aria-label={title}>
+      <span className="dashboard-coming-soon__icon"><PanelTop aria-hidden="true" /></span>
+      <div><span className="eyebrow">coming_soon</span><h2>{title}</h2><p>{description}</p></div>
+    </section>
+  )
+}
+
+// 保留现有团队看板交互，供后续版本恢复为演示页面。
+export function TeamDashboard({ period, platform, onPeriodChange, onPlatformChange }: { period: Period; platform: PlatformName; onPeriodChange: (period: Period) => void; onPlatformChange: (platform: PlatformName) => void }) {
   const periodText = period === 'day' ? '前一天' : period === 'week' ? '自然周' : period === 'month' ? '本月' : '本年'
   const specs = platformMetricSpecs[platform]
   const isDailyView = period === 'day'
@@ -124,7 +164,8 @@ function TeamDashboard({ period, platform, onPeriodChange, onPlatformChange }: {
   )
 }
 
-function PersonalDashboard({ period }: { period: Period }) {
+// 保留个人看板配置器的完整交互，供下一个版本演示使用。
+export function PersonalDashboard({ period }: { period: Period }) {
   const [dashboardCreated, setDashboardCreated] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [componentType, setComponentType] = useState<PersonalComponentType | null>(null)
@@ -312,12 +353,13 @@ export default function DashboardPage() {
   const [view, setView] = useState<DashboardView>('global')
   const [period, setPeriod] = useState<Period>('day')
   const [platform, setPlatform] = useState<PlatformName>('总计')
+  const [globalStore, setGlobalStore] = useState('全部店铺')
   return (
     <section className="page-stack dashboard-page">
       <nav className="dashboard-view-tabs" aria-label="看板范围" data-prd-anchor="dashboard-view-tabs"><button className={view === 'global' ? 'selected' : ''} type="button" onClick={() => setView('global')}>全局看板</button><button className={view === 'team' ? 'selected' : ''} type="button" onClick={() => setView('team')}>团队看板</button><button className={view === 'personal' ? 'selected' : ''} type="button" onClick={() => setView('personal')}>个人看板</button></nav>
-      {view === 'global' ? <GlobalDashboard period={period} onPeriodChange={setPeriod} /> : null}
-      {view === 'team' ? <TeamDashboard period={period} platform={platform} onPeriodChange={setPeriod} onPlatformChange={setPlatform} /> : null}
-      {view === 'personal' ? <PersonalDashboard period={period} /> : null}
+      {view === 'global' ? <GlobalDashboard period={period} platform={platform} store={globalStore} onPeriodChange={setPeriod} onPlatformChange={(nextPlatform) => { setPlatform(nextPlatform); setGlobalStore('全部店铺') }} onStoreChange={setGlobalStore} /> : null}
+      {view === 'team' ? <DashboardComingSoon title="团队看板正在开发中" description="当前版本暂不开放团队范围的经营数据展示。" /> : null}
+      {view === 'personal' ? <DashboardComingSoon title="个人看板正在开发中" description="当前版本暂不开放个人看板的配置与展示。" /> : null}
     </section>
   )
 }

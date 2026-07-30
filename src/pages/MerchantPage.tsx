@@ -7,9 +7,14 @@ import {
   Plus,
   QrCode,
   Store,
+  Trash2,
   Unlink,
   X,
 } from 'lucide-react'
+
+export type MerchantTab = 'team' | 'tasks'
+type MerchantTaskTab = 'channel' | 'dashboard'
+type MerchantTeamTab = 'group' | 'member'
 
 interface PlatformAccount {
   id: string
@@ -20,7 +25,18 @@ interface PlatformAccount {
   status: 'connected' | 'expired'
 }
 
+interface DashboardConfig {
+  id: string
+  name: string
+  group: string
+  status: 'published' | 'draft' | 'disabled'
+}
+
+interface MerchantGroup { id: string; name: string; lead: string; members: number; stores: string[] }
+interface MerchantMember { id: string; name: string; group: string; role: string; stores: string[] }
+
 const bindablePlatforms = ['快手', '爱库存', '唯品会', '好衣库', '抖店', '得物']
+const dashboardGroups = ['全体成员', '运营组', '财务组', '数据分析组']
 
 const initialAccounts: PlatformAccount[] = [
   { id: 'pa-1', platform: '快手', accountName: '快手官方企业号', boundAt: '2026-06-15 10:30', stores: ['官方旗舰店', '闪购店'], status: 'connected' },
@@ -28,8 +44,32 @@ const initialAccounts: PlatformAccount[] = [
   { id: 'pa-3', platform: '爱库存', accountName: '爱库存商家账号', boundAt: '2026-05-10 09:15', stores: ['京倍店铺', '万顷店铺'], status: 'expired' },
 ]
 
-export default function MerchantPage() {
+const initialDashboards: DashboardConfig[] = [
+  { id: 'dashboard-1', name: '经营总览', group: '全体成员', status: 'published' },
+  { id: 'dashboard-2', name: '快手渠道日报', group: '运营组', status: 'published' },
+  { id: 'dashboard-3', name: '费用与利润跟踪', group: '财务组', status: 'draft' },
+  { id: 'dashboard-4', name: '库存预警跟踪', group: '数据分析组', status: 'disabled' },
+]
+
+const initialGroups: MerchantGroup[] = [
+  { id: 'group-1', name: '运营组', lead: '李运营', members: 4, stores: ['官方旗舰店', '品牌集合店'] },
+  { id: 'group-2', name: '财务组', lead: '王财务', members: 2, stores: ['官方旗舰店', '京倍店铺'] },
+  { id: 'group-3', name: '数据分析组', lead: '陈分析', members: 2, stores: ['品牌集合店', '万顷店铺'] },
+]
+
+const initialMembers: MerchantMember[] = [
+  { id: 'member-1', name: '李运营', group: '运营组', role: '组长', stores: ['官方旗舰店', '品牌集合店'] },
+  { id: 'member-2', name: '王财务', group: '财务组', role: '财务负责人', stores: ['官方旗舰店'] },
+  { id: 'member-3', name: '陈分析', group: '数据分析组', role: '数据分析师', stores: ['品牌集合店', '万顷店铺'] },
+]
+
+export default function MerchantPage({ activeTab = 'tasks' }: { activeTab?: MerchantTab } = {}) {
+  const merchantTab = activeTab
+  const [merchantTaskTab, setMerchantTaskTab] = useState<MerchantTaskTab>('channel')
+  const [merchantTeamTab, setMerchantTeamTab] = useState<MerchantTeamTab>('group')
   const [accounts, setAccounts] = useState<PlatformAccount[]>(initialAccounts)
+  const [dashboards, setDashboards] = useState<DashboardConfig[]>(initialDashboards)
+  const [editingDashboard, setEditingDashboard] = useState<DashboardConfig | null>(null)
   const [bindDialogOpen, setBindDialogOpen] = useState(false)
   const [bindPlatform, setBindPlatform] = useState(bindablePlatforms[0])
   const [bindMode, setBindMode] = useState<'scan' | 'password'>('scan')
@@ -40,8 +80,40 @@ export default function MerchantPage() {
   const [newStoreName, setNewStoreName] = useState('')
   const [editAccount, setEditAccount] = useState<PlatformAccount | null>(null)
   const [editNewStore, setEditNewStore] = useState('')
+  const [groups, setGroups] = useState<MerchantGroup[]>(initialGroups)
+  const [members, setMembers] = useState<MerchantMember[]>(initialMembers)
+  const [editingGroup, setEditingGroup] = useState<MerchantGroup | null>(null)
+  const [editingMember, setEditingMember] = useState<MerchantMember | null>(null)
 
   const totalStores = accounts.reduce((sum, a) => sum + a.stores.length, 0)
+  const availableStores = Array.from(new Set(accounts.flatMap((account) => account.stores)))
+  const createDashboard = () => {
+    setDashboards((list) => [
+      ...list,
+      {
+        id: `dashboard-${Date.now()}`,
+        name: `新仪表盘 ${list.length + 1}`,
+        group: '全体成员',
+        status: 'draft',
+      },
+    ])
+  }
+
+  const toggleDashboardStatus = (id: string) => {
+    setDashboards((list) => list.map((dashboard) => dashboard.id === id
+      ? { ...dashboard, status: dashboard.status === 'published' ? 'disabled' : 'published' }
+      : dashboard))
+  }
+
+  const saveDashboard = () => {
+    if (!editingDashboard || !editingDashboard.name.trim()) return
+    setDashboards((list) => list.map((dashboard) => dashboard.id === editingDashboard.id ? { ...editingDashboard, name: editingDashboard.name.trim() } : dashboard))
+    setEditingDashboard(null)
+  }
+
+  const deleteDashboard = (id: string) => {
+    setDashboards((list) => list.filter((dashboard) => dashboard.id !== id))
+  }
 
   const handleBindConfirm = () => {
     const newAccount: PlatformAccount = {
@@ -92,6 +164,22 @@ export default function MerchantPage() {
     setEditAccount({ ...editAccount, stores: editAccount.stores.filter((s) => s !== store) })
   }
 
+  const saveGroup = () => {
+    if (!editingGroup || !editingGroup.name.trim()) return
+    const group = { ...editingGroup, name: editingGroup.name.trim(), lead: editingGroup.lead.trim() }
+    const originalName = groups.find((item) => item.id === group.id)?.name
+    setGroups((rows) => group.id ? rows.map((row) => row.id === group.id ? group : row) : [...rows, { ...group, id: `group-${Date.now()}` }])
+    if (originalName) setMembers((rows) => rows.map((member) => member.group === originalName ? { ...member, group: group.name } : member))
+    setEditingGroup(null)
+  }
+
+  const saveMember = () => {
+    if (!editingMember || !editingMember.name.trim()) return
+    const member = { ...editingMember, name: editingMember.name.trim() }
+    setMembers((rows) => member.id ? rows.map((row) => row.id === member.id ? member : row) : [...rows, { ...member, id: `member-${Date.now()}` }])
+    setEditingMember(null)
+  }
+
   return (
     <>
       <section className="data-scope-note">
@@ -99,9 +187,18 @@ export default function MerchantPage() {
           <span className="eyebrow">merchant_admin</span>
           <h2>商户管理员</h2>
         </div>
-        <p>管理平台账号绑定与店铺信息。</p>
+        <p>{merchantTab === 'team' ? '管理小组、成员及其可访问的店铺。' : merchantTaskTab === 'channel' ? '管理本商户电商平台后台账号和店铺数据源。' : '管理商户及小组使用的团队看板配置。'}</p>
       </section>
 
+      {merchantTab === 'team' ? <>
+        <div className="admin-sub-tabs"><button type="button" className={merchantTeamTab === 'group' ? 'active' : ''} onClick={() => setMerchantTeamTab('group')}>小组管理</button><button type="button" className={merchantTeamTab === 'member' ? 'active' : ''} onClick={() => setMerchantTeamTab('member')}>成员管理</button></div>
+        {merchantTeamTab === 'group' ? <article className="data-table-card"><header><div><span className="eyebrow">merchant_groups</span><h3>小组与店铺绑定</h3></div><button type="button" className="primary-action" onClick={() => setEditingGroup({ id: '', name: '', lead: '', members: 0, stores: [] })}><Plus aria-hidden="true" />新增小组</button></header><div className="table-scroll"><table><thead><tr><th>小组名称</th><th>负责人</th><th>成员数</th><th>可访问店铺</th><th>操作</th></tr></thead><tbody>{groups.map((group) => <tr key={group.id}><td><strong>{group.name}</strong></td><td>{group.lead || '—'}</td><td>{members.filter((member) => member.group === group.name).length}</td><td>{group.stores.join('、') || '—'}</td><td><div className="row-actions"><button type="button" className="icon-btn-sm" title="编辑" onClick={() => setEditingGroup(group)}><Pencil aria-hidden="true" /></button><button type="button" className="icon-btn-sm danger" title="删除" onClick={() => { setGroups((rows) => rows.filter((row) => row.id !== group.id)); setMembers((rows) => rows.map((member) => member.group === group.name ? { ...member, group: '未分组' } : member)) }}><Trash2 aria-hidden="true" /></button></div></td></tr>)}</tbody></table></div></article> : <article className="data-table-card"><header><div><span className="eyebrow">merchant_members</span><h3>成员与店铺绑定</h3></div><button type="button" className="primary-action" onClick={() => setEditingMember({ id: '', name: '', group: groups[0]?.name ?? '未分组', role: '', stores: [] })}><Plus aria-hidden="true" />新增成员</button></header><div className="table-scroll"><table><thead><tr><th>成员</th><th>所属小组</th><th>角色</th><th>已绑定店铺</th><th>操作</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.name}</strong></td><td>{member.group}</td><td>{member.role || '—'}</td><td>{member.stores.join('、') || '—'}</td><td><div className="row-actions"><button type="button" className="icon-btn-sm" title="编辑" onClick={() => setEditingMember(member)}><Pencil aria-hidden="true" /></button><button type="button" className="icon-btn-sm danger" title="删除" onClick={() => setMembers((rows) => rows.filter((row) => row.id !== member.id))}><Trash2 aria-hidden="true" /></button></div></td></tr>)}</tbody></table></div></article>}
+      </> : null}
+
+      {merchantTab === 'tasks' ? <div className="admin-sub-tabs"><button type="button" className={merchantTaskTab === 'channel' ? 'active' : ''} onClick={() => setMerchantTaskTab('channel')}>渠道管理</button><button type="button" className={merchantTaskTab === 'dashboard' ? 'active' : ''} onClick={() => setMerchantTaskTab('dashboard')}>仪表盘管理</button></div> : null}
+
+      {merchantTab === 'tasks' && merchantTaskTab === 'channel' ? (
+        <>
       <section className="report-stats">
         <article className="report-stat-card">
           <span className="report-stat-card__icon report-stat-card__icon--success"><Link2 aria-hidden="true" /></span>
@@ -188,6 +285,88 @@ export default function MerchantPage() {
           ) : null}
         </div>
       </article>
+        </>
+      ) : merchantTab === 'tasks' && merchantTaskTab === 'dashboard' ? (
+        <>
+          <article className="data-table-card">
+            <header>
+              <div>
+                <span className="eyebrow">dashboard_management</span>
+                <h3>公共仪表盘模板</h3>
+              </div>
+              <button className="primary-action" type="button" onClick={createDashboard}>
+                <Plus aria-hidden="true" />新建仪表盘
+              </button>
+            </header>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>仪表盘名称</th>
+                    <th>归属小组</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboards.map((dashboard) => (
+                    <tr key={dashboard.id}>
+                      <td>{dashboard.name}</td>
+                      <td>{dashboard.group}</td>
+                      <td><span className={`data-pill ${dashboard.status === 'published' ? 'normal' : dashboard.status === 'disabled' ? 'warning' : 'neutral'}`}>{dashboard.status === 'published' ? '已发布' : dashboard.status === 'disabled' ? '已停用' : '草稿'}</span></td>
+                      <td>
+                        <div className="row-actions">
+                          <button type="button" className="table-action publish" onClick={() => toggleDashboardStatus(dashboard.id)}>
+                            {dashboard.status === 'published' ? '停用' : '发布'}
+                          </button>
+                          <button type="button" className="table-action" onClick={() => setEditingDashboard(dashboard)}>
+                            编辑
+                          </button>
+                          <button type="button" className="table-action danger-action" onClick={() => deleteDashboard(dashboard.id)}>
+                            删除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </>
+      ) : null}
+
+      {editingGroup ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingGroup(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); saveGroup() }}><header><div><span className="eyebrow">group_management</span><h3>{editingGroup.id ? '编辑小组' : '新增小组'}</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setEditingGroup(null)}>×</button></header><label className="dialog-field"><span>小组名称</span><input value={editingGroup.name} onChange={(event) => setEditingGroup({ ...editingGroup, name: event.target.value })} required /></label><label className="dialog-field"><span>负责人</span><input value={editingGroup.lead} onChange={(event) => setEditingGroup({ ...editingGroup, lead: event.target.value })} /></label><fieldset className="dialog-field"><span>可访问店铺</span><div className="platform-store-tags">{availableStores.map((store) => <label key={store} className="platform-store-tag"><input type="checkbox" checked={editingGroup.stores.includes(store)} onChange={() => setEditingGroup({ ...editingGroup, stores: editingGroup.stores.includes(store) ? editingGroup.stores.filter((item) => item !== store) : [...editingGroup.stores, store] })} />{store}</label>)}</div></fieldset><footer><button className="secondary-action" type="button" onClick={() => setEditingGroup(null)}>取消</button><button className="primary-action" type="submit"><CheckCircle2 aria-hidden="true" />保存</button></footer></form></div> : null}
+
+      {editingMember ? <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingMember(null)}><form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); saveMember() }}><header><div><span className="eyebrow">member_management</span><h3>{editingMember.id ? '编辑成员' : '新增成员'}</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setEditingMember(null)}>×</button></header><label className="dialog-field"><span>成员姓名</span><input value={editingMember.name} onChange={(event) => setEditingMember({ ...editingMember, name: event.target.value })} required /></label><label className="dialog-field"><span>所属小组</span><select value={editingMember.group} onChange={(event) => setEditingMember({ ...editingMember, group: event.target.value })}><option value="未分组">未分组</option>{groups.map((group) => <option key={group.id} value={group.name}>{group.name}</option>)}</select></label><label className="dialog-field"><span>角色</span><input value={editingMember.role} onChange={(event) => setEditingMember({ ...editingMember, role: event.target.value })} /></label><fieldset className="dialog-field"><span>可访问店铺</span><div className="platform-store-tags">{availableStores.map((store) => <label key={store} className="platform-store-tag"><input type="checkbox" checked={editingMember.stores.includes(store)} onChange={() => setEditingMember({ ...editingMember, stores: editingMember.stores.includes(store) ? editingMember.stores.filter((item) => item !== store) : [...editingMember.stores, store] })} />{store}</label>)}</div></fieldset><footer><button className="secondary-action" type="button" onClick={() => setEditingMember(null)}>取消</button><button className="primary-action" type="submit"><CheckCircle2 aria-hidden="true" />保存</button></footer></form></div> : null}
+
+      {editingDashboard ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingDashboard(null)}>
+          <form className="ledger-dialog create-task-dialog" onSubmit={(event) => { event.preventDefault(); saveDashboard() }}>
+            <header>
+              <div>
+                <span className="eyebrow">edit_dashboard_template</span>
+                <h3>编辑仪表盘模板</h3>
+              </div>
+              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setEditingDashboard(null)}>×</button>
+            </header>
+            <label className="dialog-field">
+              <span>仪表盘名称</span>
+              <input value={editingDashboard.name} onChange={(event) => setEditingDashboard({ ...editingDashboard, name: event.target.value })} placeholder="请输入仪表盘名称" required />
+            </label>
+            <label className="dialog-field">
+              <span>归属小组</span>
+              <select value={editingDashboard.group} onChange={(event) => setEditingDashboard({ ...editingDashboard, group: event.target.value })}>
+                {dashboardGroups.map((group) => <option key={group} value={group}>{group}</option>)}
+              </select>
+            </label>
+            <footer>
+              <button className="secondary-action" type="button" onClick={() => setEditingDashboard(null)}>取消</button>
+              <button className="primary-action" type="submit"><CheckCircle2 aria-hidden="true" />保存</button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
 
       {/* 扫码绑定弹窗 */}
       {bindDialogOpen ? (

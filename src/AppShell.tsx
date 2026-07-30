@@ -22,8 +22,8 @@ import DashboardPage from './pages/DashboardPage'
 import TasksPage from './pages/TasksPage'
 import SkillsPage from './pages/SkillsPage'
 import ProvenancePage from './pages/ProvenancePage'
-import AdminPage from './pages/AdminPage'
-import MerchantPage from './pages/MerchantPage'
+import AdminPage, { type AdminTab } from './pages/AdminPage'
+import { type MerchantTab } from './pages/MerchantPage'
 
 export type AppSection = 'chatbot' | 'dashboard' | 'tasks' | 'skills' | 'provenance' | 'admin' | 'merchant'
 
@@ -91,6 +91,17 @@ const navItems: NavItem[] = [
   { key: 'merchant', label: '商户管理员', eyebrow: 'merchant_admin', description: '团队与商户配置管理', icon: <Store aria-hidden="true" />, group: 'admin' },
 ]
 
+const adminNav: Array<{ key: AdminTab; label: string }> = [
+  { key: 'team', label: '团队管理' },
+  { key: 'platforms', label: '平台维护' },
+  { key: 'tasks', label: '任务管理' },
+]
+
+const merchantNav: Array<{ key: MerchantTab; label: string }> = [
+  { key: 'team', label: '团队管理' },
+  { key: 'tasks', label: '任务管理' },
+]
+
 const validHashes: AppSection[] = ['chatbot', 'dashboard', 'tasks', 'skills', 'provenance', 'admin', 'merchant']
 
 function parseHash(): AppSection {
@@ -100,6 +111,8 @@ function parseHash(): AppSection {
 
 export default function AppShell() {
   const [section, setSection] = useState<AppSection>(parseHash)
+  const [adminTab, setAdminTab] = useState<AdminTab>('tasks')
+  const [merchantTab, setMerchantTab] = useState<MerchantTab>('tasks')
 
   useEffect(() => {
     if (!window.location.hash || !validHashes.includes(window.location.hash.replace(/^#/, '') as AppSection)) {
@@ -166,18 +179,14 @@ export default function AppShell() {
           ))}
           <div className="nav-divider" />
           <span className="nav-group-label">管理后台</span>
-          {navItems.filter((item) => item.group === 'admin').map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={section === item.key ? 'active' : ''}
-              onClick={() => navigate(item.key)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-              <i className="nav-active-dot" aria-hidden="true" />
-            </button>
-          ))}
+          <div className="nav-section">
+            <button type="button" className={section === 'admin' ? 'active nav-parent' : 'nav-parent'} onClick={() => navigate('admin')}><Shield aria-hidden="true" /><span>系统管理员</span><i className="nav-active-dot" aria-hidden="true" /></button>
+            <div className="nav-submenu">{adminNav.map((item) => <button key={item.key} type="button" className={section === 'admin' && adminTab === item.key ? 'active' : ''} onClick={() => { setAdminTab(item.key); navigate('admin') }}>{item.label}</button>)}</div>
+          </div>
+          <div className="nav-section">
+            <button type="button" className={section === 'merchant' ? 'active nav-parent' : 'nav-parent'} onClick={() => navigate('merchant')}><Store aria-hidden="true" /><span>商户管理员</span><i className="nav-active-dot" aria-hidden="true" /></button>
+            <div className="nav-submenu">{merchantNav.map((item) => <button key={item.key} type="button" className={section === 'merchant' && merchantTab === item.key ? 'active' : ''} onClick={() => { setMerchantTab(item.key); navigate('merchant') }}>{item.label}</button>)}</div>
+          </div>
         </nav>
 
         <div className="sidebar-user" ref={sidebarUserRef}>
@@ -295,8 +304,8 @@ export default function AppShell() {
           {section === 'tasks' ? <TasksPage /> : null}
           {section === 'skills' ? <SkillsPage /> : null}
           {section === 'provenance' ? <ProvenancePage /> : null}
-          {section === 'admin' ? <AdminPage /> : null}
-          {section === 'merchant' ? <MerchantPage /> : null}
+          {section === 'admin' ? <AdminPage activeTab={adminTab} /> : null}
+          {section === 'merchant' ? merchantTab === 'tasks' ? <AdminPage key="merchant-tasks" activeTab="tasks" context="merchant" /> : <AdminPage key="merchant-team" activeTab="team" context="merchant" initialTeamId="team-1" /> : null}
         </div>
       </main>
     </div>
