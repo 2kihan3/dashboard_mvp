@@ -82,7 +82,7 @@ interface DailyDataField {
   valueType?: 'amount' | 'ratio'
 }
 
-const taskColumns = ['任务 ID', '任务来源', '平台', '店铺', '任务日期', '业务日期', '豌豆消耗', '归属人员', '审核人', '结果预览', '任务结果', '日报状态', '任务日志', '操作项']
+const taskColumns = ['任务 ID', '任务来源', '平台', '店铺', '任务日期', '业务日期', '豌豆消耗', '归属人员', '审核人', '结果预览', '任务结果', '日报状态', '修改', '任务日志', '操作项']
 const dailyDataFieldsByPlatform: Record<LedgerPlatform, DailyDataField[]> = {
   快手: [
     { key: 'gmv', label: '平台成交GMV' }, { key: 'actualRevenue', label: '实发收入' }, { key: 'refundAmount', label: '退货金额' },
@@ -429,6 +429,13 @@ export default function TasksPage() {
   const [dataTab, setDataTab] = useState<DataTab>('tasks')
   const [taskPlatform, setTaskPlatform] = useState<DataPlatformFilter>('全部')
   const [taskStore, setTaskStore] = useState<DataStoreFilter>('全部')
+  const [taskStartDate, setTaskStartDate] = useState('')
+  const [taskEndDate, setTaskEndDate] = useState(dateMinusOne())
+  const [taskSourceFilter, setTaskSourceFilter] = useState<'全部' | TaskSource>('全部')
+  const [taskOwnerFilter, setTaskOwnerFilter] = useState('全部')
+  const [taskReviewerFilter, setTaskReviewerFilter] = useState('全部')
+  const [taskResultFilter, setTaskResultFilter] = useState<'全部' | TaskResult>('全部')
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'全部' | DailyReportStatus>('全部')
   const [dailyPlatform, setDailyPlatform] = useState<LedgerPlatform>('唯品会')
   const [dailyStore, setDailyStore] = useState('品牌集合店')
   const [dailyStartDate, setDailyStartDate] = useState('')
@@ -455,15 +462,24 @@ export default function TasksPage() {
   const [editingDailyData, setEditingDailyData] = useState<DailyDataRecord | null>(null)
   const [dailyFillValues, setDailyFillValues] = useState<Partial<Record<DailyDataMetricKey, string>>>({})
   const taskStoreOptions = uniqueValues(tasks.filter((task) => taskPlatform === '全部' || task.platform === taskPlatform).map((task) => task.store))
+  const taskOwners = uniqueValues(tasks.map((task) => task.owner))
+  const taskReviewers = uniqueValues(tasks.map((task) => task.reviewer))
   const dailyStoreOptions = uniqueValues(dailyData.filter((row) => row.platform === dailyPlatform).map((row) => row.store))
   const downloadStoreOptions = uniqueValues(dailyData.filter((row) => downloadPlatform === '全部' || row.platform === downloadPlatform).map((row) => row.store))
 
   // 报告统计
-  const totalDailyReports = tasks.length
-  const totalPublishedReports = tasks.filter((t) => t.reportStatus === '已发布').length
+  const totalDailyReports = tasks.filter((task) => task.source === '定时任务' || task.source === '人工上传文件').length
+  const totalOtherTasks = tasks.filter((task) => task.source === '指令').length
   const totalPeaCost = tasks.reduce((sum, t) => sum + t.peaCost, 0)
   const visibleTasks = tasks
     .filter((task) => (taskPlatform === '全部' || task.platform === taskPlatform) && (taskStore === '全部' || task.store === taskStore))
+    .filter((task) => !taskStartDate || task.taskDate.slice(0, 10) >= taskStartDate)
+    .filter((task) => !taskEndDate || task.taskDate.slice(0, 10) <= taskEndDate)
+    .filter((task) => taskSourceFilter === '全部' || task.source === taskSourceFilter)
+    .filter((task) => taskOwnerFilter === '全部' || task.owner === taskOwnerFilter)
+    .filter((task) => taskReviewerFilter === '全部' || task.reviewer === taskReviewerFilter)
+    .filter((task) => taskResultFilter === '全部' || task.taskResult === taskResultFilter)
+    .filter((task) => taskStatusFilter === '全部' || task.reportStatus === taskStatusFilter)
     .sort((left, right) => right.taskDate.localeCompare(left.taskDate))
   const visibleDailyData = dailyData
     .filter((row) => row.platform === dailyPlatform && row.store === dailyStore)
@@ -547,6 +563,35 @@ export default function TasksPage() {
     setCreateMode('auto')
   }
 
+  function submitRetry(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!autoStore) return
+    const record: DailyTaskRecord = {
+      id: `task-${Date.now()}`,
+      taskId: makeTaskId(autoPlatform, autoStore, tasks),
+      fileName: `${autoPlatform}日报自动化结果.json`,
+      source: '指令',
+      platform: autoPlatform,
+      store: autoStore,
+      taskDate: new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-'),
+      businessDate: dateMinusOne(),
+      resultPreview: '任务完成',
+      taskResult: '完成',
+      reportStatus: '待发布',
+      taskLog: '由重试操作重新发起自动化任务；已完成数据拉取，等待发布。',
+      isUnbound: false,
+      metrics: { gmv: 0, platformFee: 0, managementFee: 0 },
+      peaCost: 320,
+      owner: '李运营',
+      reviewer: '',
+    }
+    setTasks((rows) => [record, ...rows])
+    setTaskPlatform(autoPlatform)
+    setTaskStore(autoStore)
+    setCreateMode(null)
+    setLedgerNotice('已重新发起自动化任务，并生成一条待发布任务记录')
+  }
+
   function openManualUpload(task: DailyTaskRecord) {
     setUploadPlatformName(task.platform)
     setUploadStoreName(task.store)
@@ -600,14 +645,14 @@ export default function TasksPage() {
           <span className="report-stat-card__icon"><FileText aria-hidden="true" /></span>
           <div>
             <strong>{totalDailyReports}</strong>
-            <span>日报生成数量</span>
+            <span>日报数量</span>
           </div>
         </article>
         <article className="report-stat-card">
           <span className="report-stat-card__icon report-stat-card__icon--success"><CheckCircle2 aria-hidden="true" /></span>
           <div>
-            <strong>{totalPublishedReports}</strong>
-            <span>报告生成数量</span>
+            <strong>{totalOtherTasks}</strong>
+            <span>其他任务数量</span>
           </div>
         </article>
         <article className="report-stat-card">
@@ -637,7 +682,7 @@ export default function TasksPage() {
           </button>
         </div>
 
-        <div className="ledger-filters" aria-label="平台与店铺筛选">
+        <div className="ledger-common-filters" aria-label="常用筛选">
           <div className="data-subtabs platform-filter">
             {dataTab === 'tasks' ? (
               <button
@@ -690,15 +735,12 @@ export default function TasksPage() {
               ))}
             </select>
           </label>
-          {dataTab === 'dailyData' ? (
-            <label className="store-filter date-range-filter">
-              <span>业务日期</span>
-              <input type="date" max={dateMinusOne()} value={dailyStartDate} onChange={(event) => setDailyStartDate(event.target.value)} />
-              <b>至</b>
-              <input type="date" max={dateMinusOne()} value={dailyEndDate} onChange={(event) => setDailyEndDate(event.target.value)} />
-            </label>
-          ) : null}
         </div>
+      </section>
+
+      <section className="ledger-advanced-filters" aria-label="高级筛选">
+        <span className="ledger-advanced-filters__label">{dataTab === 'tasks' ? '任务筛选' : '日期筛选'}</span>
+        {dataTab === 'tasks' ? <><label className="store-filter date-range-filter"><span>任务日期</span><input type="date" value={taskStartDate} onChange={(event) => setTaskStartDate(event.target.value)} /><b>至</b><input type="date" value={taskEndDate} onChange={(event) => setTaskEndDate(event.target.value)} /></label><label className="store-filter"><span>来源</span><select value={taskSourceFilter} onChange={(event) => setTaskSourceFilter(event.target.value as '全部' | TaskSource)}><option value="全部">全部</option><option value="定时任务">定时任务</option><option value="指令">指令</option><option value="人工上传文件">人工上传文件</option></select></label><label className="store-filter"><span>归属人</span><select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)}><option value="全部">全部</option>{taskOwners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label><label className="store-filter"><span>审核人</span><select value={taskReviewerFilter} onChange={(event) => setTaskReviewerFilter(event.target.value)}><option value="全部">全部</option>{taskReviewers.map((reviewer) => <option key={reviewer} value={reviewer}>{reviewer}</option>)}</select></label><label className="store-filter"><span>任务结果</span><select value={taskResultFilter} onChange={(event) => setTaskResultFilter(event.target.value as '全部' | TaskResult)}><option value="全部">全部</option><option value="完成">完成</option><option value="失败">失败</option></select></label><label className="store-filter"><span>日报状态</span><select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as '全部' | DailyReportStatus)}><option value="全部">全部</option><option value="待发布">待发布</option><option value="已发布">已发布</option><option value="未发布">未发布</option></select></label></> : <label className="store-filter date-range-filter"><span>业务日期</span><input type="date" max={dateMinusOne()} value={dailyStartDate} onChange={(event) => setDailyStartDate(event.target.value)} /><b>至</b><input type="date" max={dateMinusOne()} value={dailyEndDate} onChange={(event) => setDailyEndDate(event.target.value)} /></label>}
       </section>
 
       <article className={`data-table-card upload-record-card task-record-card ${dataTab === 'dailyData' ? 'daily-data-table' : ''}`} data-prd-anchor="tasks-ledger">
@@ -749,6 +791,7 @@ export default function TasksPage() {
                       <td>{row.taskResult === '完成' ? <button className="preview-link" type="button" onClick={() => setPreviewTask(row)}><Eye aria-hidden="true" />查看</button> : '--'}</td>
                       <td><span className={`data-pill ${row.taskResult === '完成' ? 'normal' : 'danger'}`}>{row.taskResult}</span></td>
                       <td><span className={`data-pill ${row.reportStatus === '已发布' ? 'normal' : 'warning'}`}>{row.reportStatus}</span></td>
+                      <td><span className={`data-pill ${row.reviewedFields && Object.keys(row.reviewedFields).length ? 'warning' : 'neutral'}`}>{row.reviewedFields && Object.keys(row.reviewedFields).length ? '是' : '否'}</span></td>
                       <td><button className="log-link" type="button" onClick={() => setLogTask(row)}><ScrollText aria-hidden="true" />查看日志</button></td>
                       <td>
                         <div className="row-actions">
@@ -790,13 +833,7 @@ export default function TasksPage() {
 
       {createMode === 'auto' ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateMode(null) }}>
-          <form className="ledger-dialog create-task-dialog" onSubmit={(event) => {
-            event.preventDefault()
-            setCreateMode(null)
-            setTaskPlatform(autoPlatform)
-            setTaskStore(autoStore)
-            setLedgerNotice(`已创建 ${autoPlatform} · ${autoStore} 自动化任务，正在拉取平台数据...`)
-          }}>
+          <form className="ledger-dialog create-task-dialog" onSubmit={submitRetry}>
             <header>
               <div>
                 <span className="eyebrow">auto_task</span>

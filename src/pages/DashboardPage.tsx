@@ -68,10 +68,15 @@ function DailyGmvChart({ platform, store }: { platform: PlatformName; store?: st
   const dailyPlatforms: Exclude<PlatformName, '总计'>[] = platform === '总计'
     ? reportData.map((item) => item.platform)
     : [platform]
+  const cards: Array<{ platform: Exclude<PlatformName, '总计'>; store?: string }> = dailyPlatforms.flatMap((item) => {
+    if (store) return [{ platform: item, store }]
+    if (platform === '总计') return [{ platform: item }]
+    return storeShares[item].map((itemStore) => ({ platform: item, store: itemStore.name }))
+  })
   return (
-    <ChartShell title="GMV" subtitle="最近业务日 · 平台">
-      <div className="daily-gmv-grid">{dailyPlatforms.map((item) => <DailyGmvCard key={item} platform={item} store={store} />)}</div>
-      <p className="global-chart-note">日维度下 GMV 以数值卡片展示；选择店铺后仅保留该店铺的 GMV。</p>
+    <ChartShell title="GMV" subtitle={platform === '总计' ? '最近业务日 · 每个平台' : store ? '最近业务日 · 单店铺' : '最近业务日 · 每个店铺'}>
+      <div className="daily-gmv-grid">{cards.map((item) => <DailyGmvCard key={`${item.platform}-${item.store ?? 'total'}`} platform={item.platform} store={item.store} />)}</div>
+      <p className="global-chart-note">日维度下：总计展示每个平台，平台展示每个店铺，选定店铺后仅展示该店铺的 GMV。</p>
     </ChartShell>
   )
 }
@@ -84,36 +89,25 @@ function ExpectedGlobalStatsContent({ period }: { period: Period }) {
   const latestRatio = ratioData[ratioData.length - 1]?.actualRevenueRatio ?? 0
 
   return (
-      <section className="global-chart-grid" data-prd-anchor="dashboard-global-charts">
-        <ChartShell title="销售与净利润趋势" subtitle={`${periodLabel} · 金额`}>
-          <div className="chart-summary-value">GMV {formatPrecise(operatingData.reduce((sum, row) => sum + row.gmv, 0))}</div>
-          <ResponsiveContainer width="100%" height={285}><LineChart data={operatingData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" {...axisProps} /><YAxis tickFormatter={formatAmount} width={60} {...axisProps} /><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatPrecise(Number(value) || 0)} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} /><Line type="monotone" dataKey="gmv" name="GMV" stroke="#79dbc4" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="platformGmv" name="平台成交 GMV" stroke="#5fb7e6" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="actualSales" name="实际销售" stroke="#e9ae64" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="netProfit" name="净利润" stroke="#b794f6" strokeWidth={2.5} dot={{ r: 3 }} /></LineChart></ResponsiveContainer>
-          <p className="global-chart-note">实际销售 = 实发收入 - 退货金额 - 活动折扣；净利润按实际销售扣减货品、辅料、平台、推广、运费、管理及其他经营费用计算。</p>
-        </ChartShell>
-        <ChartShell title="经营费用构成" subtitle={`${periodLabel} · 平台 + 店铺`}>
-          <div className="chart-summary-value">费用合计 {formatPrecise(costData.reduce((sum, row) => sum + row.managementFee + row.otherExpense + row.financialExpense + row.taxes - row.rebate, 0))}</div>
-          <ResponsiveContainer width="100%" height={285}><BarChart data={costData} margin={{ bottom: 12 }}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="name" interval={0} tick={{ fill: '#8da39b', fontSize: 10 }} tickLine={false} axisLine={false} /><YAxis tickFormatter={formatAmount} width={60} {...axisProps} /><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatPrecise(Number(value) || 0)} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} /><Bar dataKey="managementFee" name="管理费" stackId="cost" fill="#5fb7e6" /><Bar dataKey="otherExpense" name="其他费用" stackId="cost" fill="#79dbc4" /><Bar dataKey="financialExpense" name="财务费用" stackId="cost" fill="#b794f6" /><Bar dataKey="taxes" name="税金及附加" stackId="cost" fill="#e9ae64" /><Bar dataKey="rebate" name="返利 (+)" stackId="cost" fill="#34d6b3" /></BarChart></ResponsiveContainer>
-          <p className="global-chart-note">横坐标按“平台 + 店铺”聚合；返利作为正向金额单独展示，方便核对费用结构。</p>
-        </ChartShell>
-        <ChartShell title="经营费率趋势" subtitle={`${periodLabel} · 比率`}>
-          <div className="chart-summary-value">实际收入占平台收入 {formatPercent(latestRatio)}</div>
-          <ResponsiveContainer width="100%" height={285}><LineChart data={ratioData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" {...axisProps} /><YAxis domain={[0, 1]} tickFormatter={formatPercent} width={54} {...axisProps} /><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatPercent(Number(value) || 0)} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} /><Line type="monotone" dataKey="platformFeeRatio" name="平台费用占比" stroke="#5fb7e6" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="promotionRatio" name="推广占比" stroke="#e9ae64" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="returnRatio" name="退货占比" stroke="#f87171" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="variableCostRatio" name="变动费用占比" stroke="#b794f6" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="actualRevenueRatio" name="实际收入占比" stroke="#79dbc4" strokeWidth={2.6} dot={{ r: 3 }} /></LineChart></ResponsiveContainer>
-          <p className="global-chart-note">推广占比不含 BD 佣金；平台费用与推广费用以平台收入为分母，退货和变动费用以实际收入为分母。</p>
-        </ChartShell>
-      </section>
+    <section className="global-chart-grid" data-prd-anchor="dashboard-global-preview">
+      <ChartShell title="销售与净利润趋势" subtitle={`${periodLabel} · 金额`}>
+        <div className="chart-summary-value">GMV {formatPrecise(operatingData.reduce((sum, row) => sum + row.gmv, 0))}</div>
+        <ResponsiveContainer width="100%" height={285}><LineChart data={operatingData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" {...axisProps} /><YAxis tickFormatter={formatAmount} width={60} {...axisProps} /><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatPrecise(Number(value) || 0)} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} /><Line type="monotone" dataKey="gmv" name="GMV" stroke="#79dbc4" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="platformGmv" name="平台成交 GMV" stroke="#5fb7e6" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="actualSales" name="实际销售" stroke="#e9ae64" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="netProfit" name="净利润" stroke="#b794f6" strokeWidth={2.5} dot={{ r: 3 }} /></LineChart></ResponsiveContainer>
+      </ChartShell>
+      <ChartShell title="经营费用构成" subtitle={`${periodLabel} · 平台 + 店铺`}>
+        <div className="chart-summary-value">费用合计 {formatPrecise(costData.reduce((sum, row) => sum + row.managementFee + row.otherExpense + row.financialExpense + row.taxes - row.rebate, 0))}</div>
+        <ResponsiveContainer width="100%" height={285}><BarChart data={costData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="name" interval={0} tick={{ fill: '#8da39b', fontSize: 10 }} tickLine={false} axisLine={false} /><YAxis tickFormatter={formatAmount} width={60} {...axisProps} /><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatPrecise(Number(value) || 0)} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} /><Bar dataKey="managementFee" name="管理费" stackId="cost" fill="#5fb7e6" /><Bar dataKey="otherExpense" name="其他费用" stackId="cost" fill="#79dbc4" /><Bar dataKey="financialExpense" name="财务费用" stackId="cost" fill="#b794f6" /><Bar dataKey="taxes" name="税金及附加" stackId="cost" fill="#e9ae64" /><Bar dataKey="rebate" name="返利 (+)" stackId="cost" fill="#34d6b3" /></BarChart></ResponsiveContainer>
+      </ChartShell>
+      <ChartShell title="经营费率趋势" subtitle={`${periodLabel} · 比率`}>
+        <div className="chart-summary-value">实际收入占平台收入 {formatPercent(latestRatio)}</div>
+        <ResponsiveContainer width="100%" height={285}><LineChart data={ratioData}><CartesianGrid stroke="rgba(213,234,225,.08)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="label" {...axisProps} /><YAxis domain={[0, 1]} tickFormatter={formatPercent} width={54} {...axisProps} /><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatPercent(Number(value) || 0)} /><Legend wrapperStyle={{ color: '#8da39b', fontSize: 11 }} /><Line type="monotone" dataKey="platformFeeRatio" name="平台费用占比" stroke="#5fb7e6" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="promotionRatio" name="推广占比" stroke="#e9ae64" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="returnRatio" name="退货占比" stroke="#f87171" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="variableCostRatio" name="变动费用占比" stroke="#b794f6" strokeWidth={2.3} dot={{ r: 3 }} /><Line type="monotone" dataKey="actualRevenueRatio" name="实际收入占比" stroke="#79dbc4" strokeWidth={2.6} dot={{ r: 3 }} /></LineChart></ResponsiveContainer>
+      </ChartShell>
+    </section>
   )
 }
 
 function ExpectedGlobalStatsDialog({ period, onClose }: { period: Period; onClose: () => void }) {
-  return (
-    <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="ledger-dialog expected-global-dialog" role="dialog" aria-modal="true" aria-labelledby="expected-global-stats-title">
-        <header><div><span className="eyebrow">global_dashboard · expected_full_version</span><h3 id="expected-global-stats-title">全局看板预期完整版</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={onClose}>×</button></header>
-        <p>全量数据接入完成后，将按当前时间维度展示销售、费用和经营费率统计。</p>
-        <div className="expected-global-dialog__body"><ExpectedGlobalStatsContent period={period} /></div>
-      </section>
-    </div>
-  )
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="ledger-dialog expected-global-dialog" role="dialog" aria-modal="true" aria-labelledby="expected-global-stats-title"><header><div><span className="eyebrow">global_dashboard · expected_full_version</span><h3 id="expected-global-stats-title">全局看板预期完整版</h3></div><button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={onClose}>×</button></header><p>全量数据接入完成后，将按当前时间维度展示销售、费用和经营费率统计。</p><div className="expected-global-dialog__body"><ExpectedGlobalStatsContent period={period} /></div></section></div>
 }
 
 function GlobalDashboard({ period, platform, store, onPeriodChange, onPlatformChange, onStoreChange }: { period: Period; platform: PlatformName; store: string; onPeriodChange: (period: Period) => void; onPlatformChange: (platform: PlatformName) => void; onStoreChange: (store: string) => void }) {
@@ -126,7 +120,7 @@ function GlobalDashboard({ period, platform, store, onPeriodChange, onPlatformCh
     <>
       <section className="data-scope-note global-dashboard-head" data-prd-anchor="dashboard-global-scope">
         <div className="global-dashboard-title"><div><h2>全局经营看板</h2><span className="global-dashboard-title__notice">当前展示已接入的平台经营数据。</span></div><span className="global-dashboard-title__context">{platform} · {periodText}</span></div>
-        <div className="global-dashboard-head__actions"><button className="secondary-action" type="button" onClick={() => setExpectedStatsOpen(true)}>全量数据看板预览</button><p>全量统计数据仍在接入中，可先查看当前已有经营数据。</p></div>
+        <div className="global-dashboard-head__actions"><button className="secondary-action" type="button" onClick={() => setExpectedStatsOpen(true)}>全量数据看板预览</button><p>按日期、平台和店铺筛选后，指标卡与统计图将同步取数。</p></div>
       </section>
       <section className="filters global-dashboard-filters" aria-label="全局看板筛选" data-prd-anchor="dashboard-global-filters"><div className="segmented">{periods.map((item) => <button className={period === item.key ? 'selected' : ''} key={item.key} type="button" onClick={() => onPeriodChange(item.key)}>{item.label}</button>)}</div><div className="global-dashboard-filters__scope"><div className="platform-tabs">{platforms.map((item) => <button className={platform === item ? 'selected' : ''} key={item} type="button" onClick={() => onPlatformChange(item)}>{item}</button>)}</div>{storeOptions.length ? <label className="store-select"><span>店铺</span><select aria-label={`${platform}店铺筛选`} value={store} onChange={(event) => onStoreChange(event.target.value)}><option value="全部店铺">全部店铺</option>{storeOptions.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label> : <span className="store-tabs__hint">选择平台后可筛选店铺</span>}</div></section>
       <section className="metric-summary-grid" data-prd-anchor="dashboard-global-metrics">{specs.map((spec) => <MetricSummaryCard key={spec.field} platform={platform} period={period} field={spec.field} label={spec.chartTitle} sublabel={`${spec.category} · ${spec.field}`} store={store === '全部店铺' ? undefined : store} />)}</section>
