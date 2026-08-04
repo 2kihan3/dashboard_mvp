@@ -441,6 +441,9 @@ export default function TasksPage() {
   const [dailyStartDate, setDailyStartDate] = useState('')
   const [dailyEndDate, setDailyEndDate] = useState(dateMinusOne())
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [manualUploadStep, setManualUploadStep] = useState<'template' | 'upload'>('template')
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
+  const [templatePlatform, setTemplatePlatform] = useState<LedgerPlatform>('快手')
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false)
   const [previewTask, setPreviewTask] = useState<DailyTaskRecord | null>(null)
   const [logTask, setLogTask] = useState<DailyTaskRecord | null>(null)
@@ -596,7 +599,21 @@ export default function TasksPage() {
     setUploadPlatformName(task.platform)
     setUploadStoreName(task.store)
     setSelectedFile(null)
+    setManualUploadStep('template')
     setIsUploadDialogOpen(true)
+  }
+
+  function downloadDailyTemplate(platform: LedgerPlatform, store?: string) {
+    const headers = ['业务日期', '平台名称', '店铺名称', ...dailyDataFieldsByPlatform[platform].map((field) => field.label)]
+    const placeholder = [dateMinusOne(), platform, store ?? '请填写店铺名称', ...dailyDataFieldsByPlatform[platform].map(() => '')]
+    const csv = `\uFEFF${headers.join(',')}\n${placeholder.join(',')}\n`
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${platform}${store ? `-${store}` : ''}日报模板.csv`
+    anchor.click()
+    URL.revokeObjectURL(url)
+    setLedgerNotice(`${platform}日报模板已下载`)
   }
 
   function submitManualUpload(event: React.FormEvent<HTMLFormElement>) {
@@ -749,7 +766,14 @@ export default function TasksPage() {
             <span className="eyebrow">{dataTab === 'tasks' ? 'daily_task_records' : 'daily_data'}</span>
             <h3>{dataTab === 'tasks' ? '日报任务记录' : '日报数据'}</h3>
           </div>
-          {dataTab === 'tasks' ? null : (
+          {dataTab === 'tasks' ? (
+            <div className="table-header-actions">
+              <span className="table-count">{visibleTasks.length} 条任务记录</span>
+              <button className="secondary-action" type="button" onClick={() => { setTemplatePlatform(ledgerPlatforms[0]); setTemplateDialogOpen(true) }}>
+                <Download aria-hidden="true" />下载模板
+              </button>
+            </div>
+          ) : (
             <div className="table-header-actions">
               <span className="table-count">{visibleDailyData.length} 条日报数据</span>
               <button className="primary-action" type="button" onClick={() => { setDownloadDialogOpen(true); setDownloadPlatform('全部'); setDownloadStore('全部'); setDownloadStartDate(''); setDownloadEndDate(dateMinusOne()) }}>
@@ -831,6 +855,31 @@ export default function TasksPage() {
         </div>
       </article>
 
+      {templateDialogOpen ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTemplateDialogOpen(false)}>
+          <section className="ledger-dialog create-task-dialog">
+            <header>
+              <div>
+                <span className="eyebrow">daily_report_template</span>
+                <h3>下载日报模板</h3>
+              </div>
+              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setTemplateDialogOpen(false)}>×</button>
+            </header>
+            <p>选择平台后，下载对应字段的日报模板。</p>
+            <label className="dialog-field">
+              <span>平台</span>
+              <select value={templatePlatform} onChange={(event) => setTemplatePlatform(event.target.value as LedgerPlatform)}>
+                {ledgerPlatforms.map((platform) => <option key={platform} value={platform}>{platform}</option>)}
+              </select>
+            </label>
+            <footer>
+              <button className="secondary-action" type="button" onClick={() => setTemplateDialogOpen(false)}>取消</button>
+              <button className="primary-action" type="button" onClick={() => { downloadDailyTemplate(templatePlatform); setTemplateDialogOpen(false) }}><Download aria-hidden="true" />下载模板</button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
       {createMode === 'auto' ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateMode(null) }}>
           <form className="ledger-dialog create-task-dialog" onSubmit={submitRetry}>
@@ -878,29 +927,15 @@ export default function TasksPage() {
               </div>
               <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setIsUploadDialogOpen(false)}>×</button>
             </header>
-            <p>上传 Excel 后创建一条任务记录，业务日期默认取前一天。</p>
-            <label className="dialog-field">
-              <span>Excel 文件</span>
-              <span className="file-picker">
-                <FileSpreadsheet aria-hidden="true" />
-                <strong>{selectedFile?.name ?? '选择 .xlsx / .xls / .csv 文件'}</strong>
-                <input type="file" accept=".xlsx,.xls,.csv" required onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
-              </span>
-            </label>
-            <label className="dialog-field">
-              <span>平台</span>
-              <select value={uploadPlatformName} onChange={(event) => setUploadPlatformName(event.target.value as LedgerPlatform)}>
-                {ledgerPlatforms.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <label className="dialog-field">
-              <span>店铺名称</span>
-              <input value={uploadStoreName} onChange={(event) => setUploadStoreName(event.target.value)} placeholder="请输入店铺全名" required />
-            </label>
-            <div className="dialog-meta"><span>来源：人工上传文件</span><span>业务日期：{dateMinusOne()}</span></div>
+            <div className="manual-upload-mode" role="tablist" aria-label="人工上传方式">
+              <button type="button" role="tab" aria-selected={manualUploadStep === 'template'} className={manualUploadStep === 'template' ? 'active' : ''} onClick={() => setManualUploadStep('template')}><Download aria-hidden="true" />下载模板</button>
+              <button type="button" role="tab" aria-selected={manualUploadStep === 'upload'} className={manualUploadStep === 'upload' ? 'active' : ''} onClick={() => setManualUploadStep('upload')}><Upload aria-hidden="true" />上传文件</button>
+            </div>
+            <div className="dialog-meta"><span>平台：{uploadPlatformName}</span><span>店铺：{uploadStoreName}</span><span>业务日期：{dateMinusOne()}</span></div>
+            {manualUploadStep === 'template' ? <section className="manual-upload-template"><FileSpreadsheet aria-hidden="true" /><div><strong>先下载 {uploadPlatformName} 对应模板</strong><small>模板已预填当前店铺，字段与该平台日报口径一致。</small></div><button className="primary-action" type="button" onClick={() => downloadDailyTemplate(uploadPlatformName, uploadStoreName)}><Download aria-hidden="true" />下载模板</button></section> : <><label className="dialog-field"><span>平台</span><input value={uploadPlatformName} disabled /></label><label className="dialog-field"><span>店铺名称</span><input value={uploadStoreName} disabled /></label><label className="dialog-field"><span>Excel 文件</span><span className="file-picker"><FileSpreadsheet aria-hidden="true" /><strong>{selectedFile?.name ?? '选择 .xlsx / .xls / .csv 文件'}</strong><input type="file" accept=".xlsx,.xls,.csv" required onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} /></span></label></>}
             <footer>
               <button className="secondary-action" type="button" onClick={() => setIsUploadDialogOpen(false)}>取消</button>
-              <button className="primary-action" type="submit"><Upload aria-hidden="true" />创建任务</button>
+              {manualUploadStep === 'upload' ? <button className="primary-action" type="submit"><Upload aria-hidden="true" />创建任务</button> : <button className="primary-action" type="button" onClick={() => setManualUploadStep('upload')}>下一步：上传文件</button>}
             </footer>
           </form>
         </div>

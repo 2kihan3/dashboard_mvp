@@ -103,13 +103,16 @@ export default function ChatbotPage() {
   const [ruleTime, setRuleTime] = useState('yesterday')
   const [ruleScene, setRuleScene] = useState('daily_report')
   const [historyExpanded, setHistoryExpanded] = useState(false)
+  const [skillMenuOpen, setSkillMenuOpen] = useState(false)
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null)
 
   const messages = useMemo(() => currentSessionMessages, [])
   const previewableMessages = messages.filter((m) => m.producedFile)
+  const selectedSkill = quickSkills.find((skill) => skill.id === selectedSkillId)
 
   return (
     <section className="chatbot-page">
-      {/* 左栏：对话历史 + 常用技能 */}
+      {/* 左栏：对话历史 */}
       <aside className="chatbot-rail">
         <div className="chatbot-rail__head">
           <button type="button" className="primary-action chatbot-new"><Plus aria-hidden="true" />新建对话</button>
@@ -138,26 +141,6 @@ export default function ChatbotPage() {
               {historyExpanded ? <><ChevronsUp aria-hidden="true" />收起</> : <><ChevronsDown aria-hidden="true" />展开全部（{chatSessions.length}）</>}
             </button>
           ) : null}
-        </div>
-        <div className="chatbot-rail__section">
-          <h4>常用技能</h4>
-          <ul className="chat-skills">
-            {quickSkills.map((skill) => {
-              const Icon = skillIconMap[skill.icon] ?? FileText
-              return (
-                <li key={skill.id}>
-                  <button type="button" className="chat-skill">
-                    <span className="chat-skill__icon"><Icon aria-hidden="true" /></span>
-                    <div>
-                      <strong>{skill.name}</strong>
-                      <p>{skill.description}</p>
-                    </div>
-                    <ChevronRight aria-hidden="true" />
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
         </div>
       </aside>
 
@@ -219,6 +202,11 @@ export default function ChatbotPage() {
                 <option value="free">自由问答</option>
               </select>
             </label>
+          </div>
+          {selectedSkill ? <div className="chatbot-selected-skill"><Sparkles aria-hidden="true" /><span>已选择：{selectedSkill.name}</span><button type="button" aria-label="移除已选技能" onClick={() => setSelectedSkillId(null)}><X aria-hidden="true" /></button></div> : null}
+          <div className="chatbot-tool-picker">
+            <button type="button" className="chatbot-tool-trigger" aria-label="添加工具" title="添加工具" aria-expanded={skillMenuOpen} onClick={() => setSkillMenuOpen((open) => !open)}><Plus aria-hidden="true" /></button>
+            {skillMenuOpen ? <div className="chatbot-skill-menu" role="menu" aria-label="选择技能">{quickSkills.map((skill) => { const Icon = skillIconMap[skill.icon] ?? FileText; return <button key={skill.id} type="button" role="menuitem" className={selectedSkillId === skill.id ? 'active' : ''} onClick={() => { setSelectedSkillId(skill.id); setSkillMenuOpen(false) }}><span><Icon aria-hidden="true" /></span><div><strong>{skill.name}</strong><small>{skill.description}</small></div></button> })}</div> : null}
           </div>
           <label className="chatbot-composer__attach" aria-label="上传文件">
             <Paperclip aria-hidden="true" />
