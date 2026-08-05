@@ -1484,6 +1484,11 @@
 .manual-upload-template strong, .manual-upload-template small { display: block; }
 .manual-upload-template strong { color: var(--mist); font-size: 12px; }
 .manual-upload-template small { margin-top: 3px; color: var(--faint); font-size: 11px; line-height: 1.45; }
+.vip-upload-requirement { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border: 1px solid rgba(121, 219, 196, .28); border-radius: 7px; background: rgba(121, 219, 196, .06); }
+.vip-upload-requirement > svg { width: 22px; color: var(--aqua); flex: 0 0 auto; }
+.vip-upload-requirement strong, .vip-upload-requirement small { display: block; }
+.vip-upload-requirement strong { color: var(--mist); font-size: 12px; }
+.vip-upload-requirement small { margin-top: 3px; color: var(--faint); font-size: 11px; line-height: 1.45; }
 .dialog-meta { display: flex; gap: 16px; padding: 10px 0; color: var(--faint); font-family: "DM Mono", monospace; font-size: 10px; }
 
 /* 团队管理列表 */

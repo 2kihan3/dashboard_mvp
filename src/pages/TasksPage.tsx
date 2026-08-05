@@ -15,9 +15,10 @@ import {
 } from 'lucide-react'
 import { type PlatformName, type ReportRow, reportDataWithHaoyiku as reportData } from '../data/dailyReport'
 import { formatPrecise } from '../lib/metrics'
+import * as XLSX from 'xlsx'
 
 type DailyReportStatus = '待发布' | '已发布' | '未发布'
-type TaskSource = '定时任务' | '指令' | '人工上传文件'
+type TaskSource = '定时任务' | '指令' | '人工上传文件' | '人工上传'
 type TaskResult = '完成' | '失败'
 type DataTab = 'tasks' | 'dailyData'
 type LedgerPlatform = Exclude<PlatformName, '总计'> | '抖店' | '得物'
@@ -44,6 +45,7 @@ interface DailyTaskRecord {
   peaCost: number // 豌豆消耗
   owner: string // 任务归属人员
   reviewer: string // 审核人
+  brandSkuCount?: number // 唯品会产品上新统计表 D 列解析结果
 }
 
 interface DailyDataRecord {
@@ -162,21 +164,21 @@ const taskRows: DailyTaskRecord[] = [
   {
     id: 'task-3',
     taskId: '20260714WPPPJH001',
-    fileName: '唯品会日报自动化结果.json',
-    source: '指令',
+    fileName: '--',
+    source: '人工上传',
     platform: '唯品会',
     store: '品牌集合店',
     taskDate: '2026-07-14 08:18:42',
     businessDate: '2026-07-13',
-    resultPreview: '任务完成',
-    taskResult: '完成',
-    reportStatus: '已发布',
-    taskLog: '08:18 接收补数指令；08:19 完成唯品会字段复核并发布。',
+    resultPreview: '--',
+    taskResult: '失败',
+    reportStatus: '未发布',
+    taskLog: '等待上传前一天更新的产品上新统计表（仅解析 D 列品牌款号）。',
     isUnbound: false,
-    metrics: { gmv: 57911.59, platformFee: 1501.65, managementFee: 0 },
-    peaCost: 450,
-    owner: '王财务',
-    reviewer: '张管理员',
+    metrics: { gmv: 0, platformFee: 0, managementFee: 0 },
+    peaCost: 0,
+    owner: '系统',
+    reviewer: '',
   },
   {
     id: 'task-4',
@@ -228,6 +230,26 @@ function dateMinusOne() {
   const date = new Date()
   date.setDate(date.getDate() - 1)
   return date.toISOString().slice(0, 10)
+}
+
+function dateMinusDays(dateString: string, days: number) {
+  const date = new Date(`${dateString}T00:00:00`)
+  date.setDate(date.getDate() - days)
+  return date.toISOString().slice(0, 10)
+}
+
+function datePlusDays(dateString: string, days: number) {
+  const date = new Date(`${dateString}T00:00:00`)
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+function canDownloadSourceTable(task: DailyTaskRecord) {
+  return task.taskResult === '完成' && task.source !== '人工上传文件' && !task.isUnbound
+}
+
+function sourceTableFileName(task: DailyTaskRecord) {
+  return `${task.platform}-${task.store}-${task.businessDate}-源表.xlsx`
 }
 
 function platformAbbreviation(platform: LedgerPlatform) {
@@ -397,35 +419,7 @@ function TaskPreviewDialog({ task, onClose, onEdit }: { task: DailyTaskRecord; o
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<DailyTaskRecord[]>(taskRows)
-  const [dailyData, setDailyData] = useState<DailyDataRecord[]>([
-    {
-      taskId: '20260714WPPPJH001',
-      businessDate: '2026-07-13',
-      platform: '唯品会',
-      store: '品牌集合店',
-      gmv: 57911.59,
-      salesRevenue: 55314.24,
-      actualRevenue: 51660.85,
-      refundAmount: 1898.42,
-      activityDiscount: 2353.32,
-      salesCost: 31978.56,
-      platformFee: 1501.65,
-      promotionFee: 4329.78,
-      shippingFee: 1158.62,
-      managementFee: 0,
-      wage: 1140.5,
-      rent: 526.78,
-      officeExpense: 182.64,
-      otherExpense: 98.36,
-      financeExpense: 47.22,
-      taxes: 264.18,
-      estimatedCostTax: 329.36,
-      platformRebate: 412.56,
-      netProfit: 5694.4,
-      netProfitMargin: 0.0983,
-      allocatedNetProfit: 4025.76,
-    },
-  ])
+  const [dailyData, setDailyData] = useState<DailyDataRecord[]>([])
   const [dataTab, setDataTab] = useState<DataTab>('tasks')
   const [taskPlatform, setTaskPlatform] = useState<DataPlatformFilter>('全部')
   const [taskStore, setTaskStore] = useState<DataStoreFilter>('全部')
@@ -444,6 +438,11 @@ export default function TasksPage() {
   const [manualUploadStep, setManualUploadStep] = useState<'template' | 'upload'>('template')
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
   const [templatePlatform, setTemplatePlatform] = useState<LedgerPlatform>('快手')
+  const [batchSourceDialogOpen, setBatchSourceDialogOpen] = useState(false)
+  const [batchSourcePlatform, setBatchSourcePlatform] = useState<LedgerPlatform>('快手')
+  const [batchSourceStore, setBatchSourceStore] = useState('')
+  const [batchSourceStartDate, setBatchSourceStartDate] = useState('')
+  const [batchSourceEndDate, setBatchSourceEndDate] = useState('')
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false)
   const [previewTask, setPreviewTask] = useState<DailyTaskRecord | null>(null)
   const [logTask, setLogTask] = useState<DailyTaskRecord | null>(null)
@@ -451,6 +450,8 @@ export default function TasksPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadStoreName, setUploadStoreName] = useState('')
   const [uploadPlatformName, setUploadPlatformName] = useState<LedgerPlatform>('快手')
+  const [uploadTargetTaskId, setUploadTargetTaskId] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState('')
   const [reviewNote, setReviewNote] = useState('')
   const [reviewFields, setReviewFields] = useState<Record<string, number>>({})
   const [ledgerNotice, setLedgerNotice] = useState('')
@@ -469,9 +470,20 @@ export default function TasksPage() {
   const taskReviewers = uniqueValues(tasks.map((task) => task.reviewer))
   const dailyStoreOptions = uniqueValues(dailyData.filter((row) => row.platform === dailyPlatform).map((row) => row.store))
   const downloadStoreOptions = uniqueValues(dailyData.filter((row) => downloadPlatform === '全部' || row.platform === downloadPlatform).map((row) => row.store))
+  const batchSourceStoreOptions = uniqueValues(tasks.filter((task) => canDownloadSourceTable(task) && task.platform === batchSourcePlatform).map((task) => task.store))
+  const batchSourceCandidates = tasks
+    .filter((task) => canDownloadSourceTable(task) && task.platform === batchSourcePlatform && task.store === batchSourceStore)
+    .sort((left, right) => right.businessDate.localeCompare(left.businessDate))
+  const defaultBatchSourceEndDate = batchSourceCandidates[0]?.businessDate ?? ''
+  const resolvedBatchSourceEndDate = batchSourceEndDate || (batchSourceStartDate ? datePlusDays(batchSourceStartDate, 9) : defaultBatchSourceEndDate)
+  const resolvedBatchSourceStartDate = batchSourceStartDate || (resolvedBatchSourceEndDate ? dateMinusDays(resolvedBatchSourceEndDate, 9) : '')
+  const batchSourceRangeError = Boolean(batchSourceStartDate && batchSourceEndDate && batchSourceStartDate < dateMinusDays(batchSourceEndDate, 9))
+  const batchSourceRecords = batchSourceCandidates
+    .filter((task) => !resolvedBatchSourceStartDate || !resolvedBatchSourceEndDate || (task.businessDate >= resolvedBatchSourceStartDate && task.businessDate <= resolvedBatchSourceEndDate))
+    .slice(0, 10)
 
   // 报告统计
-  const totalDailyReports = tasks.filter((task) => task.source === '定时任务' || task.source === '人工上传文件').length
+  const totalDailyReports = tasks.filter((task) => task.source === '定时任务' || task.source === '人工上传文件' || task.source === '人工上传').length
   const totalOtherTasks = tasks.filter((task) => task.source === '指令').length
   const totalPeaCost = tasks.reduce((sum, t) => sum + t.peaCost, 0)
   const visibleTasks = tasks
@@ -599,7 +611,9 @@ export default function TasksPage() {
     setUploadPlatformName(task.platform)
     setUploadStoreName(task.store)
     setSelectedFile(null)
-    setManualUploadStep('template')
+    setUploadTargetTaskId(task.platform === '唯品会' ? task.taskId : null)
+    setUploadError('')
+    setManualUploadStep(task.platform === '唯品会' ? 'upload' : 'template')
     setIsUploadDialogOpen(true)
   }
 
@@ -616,9 +630,103 @@ export default function TasksPage() {
     setLedgerNotice(`${platform}日报模板已下载`)
   }
 
-  function submitManualUpload(event: React.FormEvent<HTMLFormElement>) {
+  function downloadSourceTables(records: DailyTaskRecord[], isBatch = false) {
+    if (!records.length) return
+    const workbook = XLSX.utils.book_new()
+    records.forEach((task, index) => {
+      const sourceRows = Object.entries(taskFieldValues(task)).map(([field, value]) => ({
+        '任务 ID': task.taskId,
+        '平台': task.platform,
+        '店铺': task.store,
+        '业务日期': task.businessDate,
+        '源表字段': field,
+        '原始值': value,
+      }))
+      if (task.brandSkuCount !== undefined) {
+        sourceRows.push({
+          '任务 ID': task.taskId,
+          '平台': task.platform,
+          '店铺': task.store,
+          '业务日期': task.businessDate,
+          '源表字段': 'D 列品牌款号数量',
+          '原始值': task.brandSkuCount,
+        })
+      }
+      const worksheet = XLSX.utils.json_to_sheet(sourceRows)
+      XLSX.utils.book_append_sheet(workbook, worksheet, `${task.businessDate.replaceAll('-', '')}-${index + 1}`.slice(0, 31))
+    })
+    const fileName = isBatch
+      ? `${records[0].platform}-${records[0].store}-近${records.length}天源表.xlsx`
+      : sourceTableFileName(records[0])
+    XLSX.writeFile(workbook, fileName)
+    setLedgerNotice(isBatch ? `已下载 ${records.length} 份源表，已合并为一个 Excel 工作簿` : `已下载源表：${fileName}`)
+  }
+
+  function openBatchSourceDialog() {
+    const firstRecord = tasks.find((task) => canDownloadSourceTable(task))
+    if (!firstRecord) {
+      setLedgerNotice('当前没有可下载的自动化任务源表')
+      return
+    }
+    setBatchSourcePlatform(firstRecord.platform)
+    setBatchSourceStore(firstRecord.store)
+    setBatchSourceStartDate('')
+    setBatchSourceEndDate('')
+    setBatchSourceDialogOpen(true)
+  }
+
+  async function submitManualUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedFile || !uploadStoreName.trim()) return
+    setUploadError('')
+
+    if (uploadPlatformName === '唯品会') {
+      if (!uploadTargetTaskId) {
+        setUploadError('未找到对应的唯品会待执行任务，请刷新后重试。')
+        return
+      }
+      if (!/\.(xlsx|xls)$/i.test(selectedFile.name)) {
+        setUploadError('请上传 Excel 格式的产品上新统计表（.xlsx 或 .xls）。')
+        return
+      }
+      try {
+        const workbook = XLSX.read(await selectedFile.arrayBuffer(), { type: 'array' })
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        const sheetRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' }) as unknown[][]
+        const brandSkuCodes = sheetRows
+          .slice(1)
+          .map((row) => String(row[3] ?? '').trim())
+          .filter(Boolean)
+        if (!brandSkuCodes.length) {
+          setUploadError('未识别到 D 列品牌款号，请检查产品上新统计表格式。')
+          return
+        }
+        setTasks((rows) => rows.map((row) => row.taskId === uploadTargetTaskId ? {
+          ...row,
+          fileName: selectedFile.name,
+          source: '人工上传',
+          resultPreview: '任务完成',
+          taskResult: '完成',
+          reportStatus: '待发布',
+          taskLog: `已上传产品上新统计表，提取 D 列品牌款号 ${brandSkuCodes.length} 个；自动化处理完成，等待发布。`,
+          metrics: { gmv: 57911.59, platformFee: 1501.65, managementFee: 0 },
+          peaCost: 450,
+          owner: '王财务',
+          reviewer: '',
+          brandSkuCount: brandSkuCodes.length,
+        } : row))
+        setTaskPlatform('唯品会')
+        setTaskStore(uploadStoreName.trim())
+        setSelectedFile(null)
+        setUploadTargetTaskId(null)
+        setIsUploadDialogOpen(false)
+        setLedgerNotice(`已解析 ${brandSkuCodes.length} 个品牌款号，唯品会自动化任务已完成，等待发布`)
+      } catch {
+        setUploadError('文件解析失败，请确认上传的是未损坏的产品上新统计表。')
+      }
+      return
+    }
+
     const record: DailyTaskRecord = {
       id: `task-${Date.now()}`,
       taskId: makeTaskId(uploadPlatformName, uploadStoreName.trim(), tasks),
@@ -757,7 +865,7 @@ export default function TasksPage() {
 
       <section className="ledger-advanced-filters" aria-label="高级筛选">
         <span className="ledger-advanced-filters__label">{dataTab === 'tasks' ? '任务筛选' : '日期筛选'}</span>
-        {dataTab === 'tasks' ? <><label className="store-filter date-range-filter"><span>任务日期</span><input type="date" value={taskStartDate} onChange={(event) => setTaskStartDate(event.target.value)} /><b>至</b><input type="date" value={taskEndDate} onChange={(event) => setTaskEndDate(event.target.value)} /></label><label className="store-filter"><span>来源</span><select value={taskSourceFilter} onChange={(event) => setTaskSourceFilter(event.target.value as '全部' | TaskSource)}><option value="全部">全部</option><option value="定时任务">定时任务</option><option value="指令">指令</option><option value="人工上传文件">人工上传文件</option></select></label><label className="store-filter"><span>归属人</span><select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)}><option value="全部">全部</option>{taskOwners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label><label className="store-filter"><span>审核人</span><select value={taskReviewerFilter} onChange={(event) => setTaskReviewerFilter(event.target.value)}><option value="全部">全部</option>{taskReviewers.map((reviewer) => <option key={reviewer} value={reviewer}>{reviewer}</option>)}</select></label><label className="store-filter"><span>任务结果</span><select value={taskResultFilter} onChange={(event) => setTaskResultFilter(event.target.value as '全部' | TaskResult)}><option value="全部">全部</option><option value="完成">完成</option><option value="失败">失败</option></select></label><label className="store-filter"><span>日报状态</span><select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as '全部' | DailyReportStatus)}><option value="全部">全部</option><option value="待发布">待发布</option><option value="已发布">已发布</option><option value="未发布">未发布</option></select></label></> : <label className="store-filter date-range-filter"><span>业务日期</span><input type="date" max={dateMinusOne()} value={dailyStartDate} onChange={(event) => setDailyStartDate(event.target.value)} /><b>至</b><input type="date" max={dateMinusOne()} value={dailyEndDate} onChange={(event) => setDailyEndDate(event.target.value)} /></label>}
+        {dataTab === 'tasks' ? <><label className="store-filter date-range-filter"><span>任务日期</span><input type="date" value={taskStartDate} onChange={(event) => setTaskStartDate(event.target.value)} /><b>至</b><input type="date" value={taskEndDate} onChange={(event) => setTaskEndDate(event.target.value)} /></label><label className="store-filter"><span>来源</span><select value={taskSourceFilter} onChange={(event) => setTaskSourceFilter(event.target.value as '全部' | TaskSource)}><option value="全部">全部</option><option value="定时任务">定时任务</option><option value="指令">指令</option><option value="人工上传">人工上传</option><option value="人工上传文件">人工上传文件</option></select></label><label className="store-filter"><span>归属人</span><select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)}><option value="全部">全部</option>{taskOwners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label><label className="store-filter"><span>审核人</span><select value={taskReviewerFilter} onChange={(event) => setTaskReviewerFilter(event.target.value)}><option value="全部">全部</option>{taskReviewers.map((reviewer) => <option key={reviewer} value={reviewer}>{reviewer}</option>)}</select></label><label className="store-filter"><span>任务结果</span><select value={taskResultFilter} onChange={(event) => setTaskResultFilter(event.target.value as '全部' | TaskResult)}><option value="全部">全部</option><option value="完成">完成</option><option value="失败">失败</option></select></label><label className="store-filter"><span>日报状态</span><select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as '全部' | DailyReportStatus)}><option value="全部">全部</option><option value="待发布">待发布</option><option value="已发布">已发布</option><option value="未发布">未发布</option></select></label></> : <label className="store-filter date-range-filter"><span>业务日期</span><input type="date" max={dateMinusOne()} value={dailyStartDate} onChange={(event) => setDailyStartDate(event.target.value)} /><b>至</b><input type="date" max={dateMinusOne()} value={dailyEndDate} onChange={(event) => setDailyEndDate(event.target.value)} /></label>}
       </section>
 
       <article className={`data-table-card upload-record-card task-record-card ${dataTab === 'dailyData' ? 'daily-data-table' : ''}`} data-prd-anchor="tasks-ledger">
@@ -769,6 +877,9 @@ export default function TasksPage() {
           {dataTab === 'tasks' ? (
             <div className="table-header-actions">
               <span className="table-count">{visibleTasks.length} 条任务记录</span>
+              <button className="primary-action" type="button" onClick={openBatchSourceDialog}>
+                <Download aria-hidden="true" />批量下载源表
+              </button>
               <button className="secondary-action" type="button" onClick={() => { setTemplatePlatform(ledgerPlatforms[0]); setTemplateDialogOpen(true) }}>
                 <Download aria-hidden="true" />下载模板
               </button>
@@ -804,7 +915,7 @@ export default function TasksPage() {
                 ? visibleTasks.map((row) => (
                     <tr key={row.id}>
                       <td><span className="batch-id">{row.taskId}</span></td>
-                      <td><span className={`data-pill ${row.source === '人工上传文件' ? 'warning' : 'normal'}`}>{row.source}</span></td>
+                      <td><span className={`data-pill ${row.source === '人工上传文件' || row.source === '人工上传' ? 'warning' : 'normal'}`}>{row.source}</span></td>
                       <td>{row.platform}</td>
                       <td>{row.store}</td>
                       <td>{row.taskDate}</td>
@@ -825,11 +936,14 @@ export default function TasksPage() {
                           <button className="table-action" type="button" disabled={row.taskResult !== '完成' || row.reportStatus === '已发布' || row.isUnbound} onClick={() => openReview(row)}>
                             <Pencil aria-hidden="true" />修改
                           </button>
-                          <button className="table-action" type="button" disabled={row.isUnbound} onClick={() => openRetry(row)}>
+                          <button className="table-action" type="button" disabled={row.isUnbound || row.platform === '唯品会'} title={row.platform === '唯品会' ? '唯品会任务仅可通过人工上传产品上新统计表触发' : undefined} onClick={() => openRetry(row)}>
                             <RotateCcw aria-hidden="true" />重试
                           </button>
                           <button className="table-action" type="button" disabled={row.isUnbound} onClick={() => openManualUpload(row)}>
                             <Upload aria-hidden="true" />人工上传
+                          </button>
+                          <button className="table-action" type="button" disabled={!canDownloadSourceTable(row)} title={canDownloadSourceTable(row) ? `下载 ${sourceTableFileName(row)}` : '仅已完成的自动化任务支持下载源表'} onClick={() => downloadSourceTables([row])}>
+                            <Download aria-hidden="true" />下载源表
                           </button>
                           <button className="table-action danger-action" type="button" disabled={row.isUnbound} onClick={() => unbindTask(row.taskId)}>
                             <Unlink aria-hidden="true" />{row.isUnbound ? '已解绑' : '作废'}
@@ -880,6 +994,54 @@ export default function TasksPage() {
         </div>
       ) : null}
 
+      {batchSourceDialogOpen ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setBatchSourceDialogOpen(false)}>
+          <section className="ledger-dialog create-task-dialog" role="dialog" aria-modal="true" aria-labelledby="batch-source-title">
+            <header>
+              <div>
+                <span className="eyebrow">batch_source_tables</span>
+                <h3 id="batch-source-title">批量下载源表</h3>
+              </div>
+              <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setBatchSourceDialogOpen(false)}>×</button>
+            </header>
+            <p>仅合并同一平台、同一店铺的自动化任务源表。业务日期可不填，系统默认取最新 10 天。</p>
+            <label className="dialog-field">
+              <span>平台</span>
+              <select value={batchSourcePlatform} onChange={(event) => {
+                const platform = event.target.value as LedgerPlatform
+                const firstStore = uniqueValues(tasks.filter((task) => canDownloadSourceTable(task) && task.platform === platform).map((task) => task.store))[0] ?? ''
+                setBatchSourcePlatform(platform)
+                setBatchSourceStore(firstStore)
+                setBatchSourceStartDate('')
+                setBatchSourceEndDate('')
+              }}>
+                {ledgerPlatforms.map((platform) => <option key={platform} value={platform}>{platform}</option>)}
+              </select>
+            </label>
+            <label className="dialog-field">
+              <span>店铺</span>
+              <select value={batchSourceStore} onChange={(event) => setBatchSourceStore(event.target.value)}>
+                {batchSourceStoreOptions.length ? batchSourceStoreOptions.map((store) => <option key={store} value={store}>{store}</option>) : <option value="">暂无可下载源表</option>}
+              </select>
+            </label>
+            <label className="dialog-field">
+              <span>业务日期（可选，最多 10 天）</span>
+              <div className="date-range-inputs">
+                <input type="date" value={batchSourceStartDate} onChange={(event) => setBatchSourceStartDate(event.target.value)} />
+                <b>至</b>
+                <input type="date" value={batchSourceEndDate} onChange={(event) => setBatchSourceEndDate(event.target.value)} />
+              </div>
+            </label>
+            {batchSourceRangeError ? <p className="dialog-field-hint">时间范围不能超过 10 天，请缩短所选日期。</p> : null}
+            <div className="dialog-meta"><span>可下载：{batchSourceRecords.length} 份源表</span><span>范围：{resolvedBatchSourceStartDate && resolvedBatchSourceEndDate ? `${resolvedBatchSourceStartDate} 至 ${resolvedBatchSourceEndDate}` : '暂无可下载日期'}</span></div>
+            <footer>
+              <button className="secondary-action" type="button" onClick={() => setBatchSourceDialogOpen(false)}>取消</button>
+              <button className="primary-action" type="button" disabled={!batchSourceRecords.length || batchSourceRangeError} onClick={() => { downloadSourceTables(batchSourceRecords, true); setBatchSourceDialogOpen(false) }}><Download aria-hidden="true" />下载源表</button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
       {createMode === 'auto' ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateMode(null) }}>
           <form className="ledger-dialog create-task-dialog" onSubmit={submitRetry}>
@@ -923,19 +1085,19 @@ export default function TasksPage() {
             <header>
               <div>
                 <span className="eyebrow">manual_import</span>
-                <h3>人工上传任务</h3>
+                <h3>{uploadPlatformName === '唯品会' ? '上传产品上新统计表' : '人工上传任务'}</h3>
               </div>
               <button className="dialog-close" type="button" aria-label="关闭弹窗" onClick={() => setIsUploadDialogOpen(false)}>×</button>
             </header>
-            <div className="manual-upload-mode" role="tablist" aria-label="人工上传方式">
+            {uploadPlatformName !== '唯品会' ? <div className="manual-upload-mode" role="tablist" aria-label="人工上传方式">
               <button type="button" role="tab" aria-selected={manualUploadStep === 'template'} className={manualUploadStep === 'template' ? 'active' : ''} onClick={() => setManualUploadStep('template')}><Download aria-hidden="true" />下载模板</button>
               <button type="button" role="tab" aria-selected={manualUploadStep === 'upload'} className={manualUploadStep === 'upload' ? 'active' : ''} onClick={() => setManualUploadStep('upload')}><Upload aria-hidden="true" />上传文件</button>
-            </div>
+            </div> : null}
             <div className="dialog-meta"><span>平台：{uploadPlatformName}</span><span>店铺：{uploadStoreName}</span><span>业务日期：{dateMinusOne()}</span></div>
-            {manualUploadStep === 'template' ? <section className="manual-upload-template"><FileSpreadsheet aria-hidden="true" /><div><strong>先下载 {uploadPlatformName} 对应模板</strong><small>模板已预填当前店铺，字段与该平台日报口径一致。</small></div><button className="primary-action" type="button" onClick={() => downloadDailyTemplate(uploadPlatformName, uploadStoreName)}><Download aria-hidden="true" />下载模板</button></section> : <><label className="dialog-field"><span>平台</span><input value={uploadPlatformName} disabled /></label><label className="dialog-field"><span>店铺名称</span><input value={uploadStoreName} disabled /></label><label className="dialog-field"><span>Excel 文件</span><span className="file-picker"><FileSpreadsheet aria-hidden="true" /><strong>{selectedFile?.name ?? '选择 .xlsx / .xls / .csv 文件'}</strong><input type="file" accept=".xlsx,.xls,.csv" required onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} /></span></label></>}
+            {uploadPlatformName === '唯品会' ? <><section className="vip-upload-requirement"><FileSpreadsheet aria-hidden="true" /><div><strong>上传前一天更新的产品上新统计表</strong><small>仅支持 .xlsx / .xls 文件；系统只解析 D 列的品牌款号，并以解析结果触发自动化任务。</small></div></section><label className="dialog-field"><span>产品上新统计表</span><span className="file-picker"><FileSpreadsheet aria-hidden="true" /><strong>{selectedFile?.name ?? '选择 .xlsx / .xls 文件'}</strong><input type="file" accept=".xlsx,.xls" required onChange={(event) => { setSelectedFile(event.target.files?.[0] ?? null); setUploadError('') }} /></span></label>{uploadError ? <p className="dialog-field-hint">{uploadError}</p> : null}</> : manualUploadStep === 'template' ? <section className="manual-upload-template"><FileSpreadsheet aria-hidden="true" /><div><strong>先下载 {uploadPlatformName} 对应模板</strong><small>模板已预填当前店铺，字段与该平台日报口径一致。</small></div><button className="primary-action" type="button" onClick={() => downloadDailyTemplate(uploadPlatformName, uploadStoreName)}><Download aria-hidden="true" />下载模板</button></section> : <><label className="dialog-field"><span>平台</span><input value={uploadPlatformName} disabled /></label><label className="dialog-field"><span>店铺名称</span><input value={uploadStoreName} disabled /></label><label className="dialog-field"><span>Excel 文件</span><span className="file-picker"><FileSpreadsheet aria-hidden="true" /><strong>{selectedFile?.name ?? '选择 .xlsx / .xls / .csv 文件'}</strong><input type="file" accept=".xlsx,.xls,.csv" required onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} /></span></label></>}
             <footer>
               <button className="secondary-action" type="button" onClick={() => setIsUploadDialogOpen(false)}>取消</button>
-              {manualUploadStep === 'upload' ? <button className="primary-action" type="submit"><Upload aria-hidden="true" />创建任务</button> : <button className="primary-action" type="button" onClick={() => setManualUploadStep('upload')}>下一步：上传文件</button>}
+              {uploadPlatformName === '唯品会' ? <button className="primary-action" type="submit"><Upload aria-hidden="true" />解析并执行任务</button> : manualUploadStep === 'upload' ? <button className="primary-action" type="submit"><Upload aria-hidden="true" />创建任务</button> : <button className="primary-action" type="button" onClick={() => setManualUploadStep('upload')}>下一步：上传文件</button>}
             </footer>
           </form>
         </div>
